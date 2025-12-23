@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import api from "@/lib/axios"
+import api, { refreshApi } from "@/lib/axios"
 
 type AuthState = {
     accessToken: string | null
@@ -65,7 +65,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
 
         try {
-            const res = await api.post("/auth/refresh", {
+            const res = await refreshApi.post("/auth/refresh", {
                 refresh_token: refreshToken,
             })
 
@@ -94,7 +94,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (!refreshToken) return null
 
         try {
-            const res = await api.post("/auth/refresh", {
+            const res = await refreshApi.post("/auth/refresh", {
                 refresh_token: refreshToken,
             })
 

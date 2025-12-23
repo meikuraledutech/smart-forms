@@ -7,6 +7,7 @@ import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
 import { useAuthStore } from "@/lib/auth-store"
+import { getErrorMessage } from "@/lib/error-handler"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -56,8 +57,18 @@ export function LoginForm({
 
       toast.success("Login successful")
       router.replace("/dashboard")
-    } catch {
-      toast.error("Invalid email or password")
+    } catch (error: any) {
+      // Check for server/network errors first
+      const serverError = getErrorMessage(error)
+      if (serverError) {
+        toast.error(serverError)
+      } else if (error.response?.status === 401) {
+        // Specific handling for invalid credentials
+        toast.error("Invalid email or password")
+      } else {
+        // Fallback for other client errors
+        toast.error("Login failed. Please try again.")
+      }
     } finally {
       setLoading(false)
     }

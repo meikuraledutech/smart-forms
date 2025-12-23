@@ -10,6 +10,15 @@ const api = axios.create({
     },
 })
 
+// Separate axios instance for refresh token (no interceptors)
+export const refreshApi = axios.create({
+    baseURL: API_BASE_URL,
+    headers: {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
+    },
+})
+
 /*
 ========================
  REQUEST INTERCEPTOR
@@ -49,10 +58,13 @@ api.interceptors.response.use(
                 originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
                 return api(originalRequest)
             }
+
+            // Refresh failed - logout and reject
+            store.logout()
+            return Promise.reject(error)
         }
 
-        // Refresh failed or other error
-        store.logout()
+        // For non-401 errors, just reject without logging out
         return Promise.reject(error)
     }
 )

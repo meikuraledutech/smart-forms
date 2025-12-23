@@ -7,6 +7,7 @@ import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
 import api from "@/lib/axios"
+import { getErrorMessage } from "@/lib/error-handler"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -67,11 +68,20 @@ export function SignupForm({
 
       toast.success("Account created successfully")
       router.replace("/login")
-    } catch (err: any) {
-      if (err.response?.status === 409) {
+    } catch (error: any) {
+      // Check for server/network errors first
+      const serverError = getErrorMessage(error)
+      if (serverError) {
+        toast.error(serverError)
+      } else if (error.response?.status === 409) {
+        // User already exists
         toast.error("User already registered")
+      } else if (error.response?.status === 400) {
+        // Bad request - validation error
+        toast.error("Invalid input. Please check your information.")
       } else {
-        toast.error("Registration failed")
+        // Other client errors
+        toast.error("Registration failed. Please try again.")
       }
     } finally {
       setLoading(false)
