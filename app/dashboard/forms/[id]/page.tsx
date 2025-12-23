@@ -76,7 +76,7 @@ export default function FormDetailPage() {
   return (
     <AuthGuard requireAuth>
       <SidebarProvider>
-        <AppSidebar />
+        <AppSidebar activeItem="My Forms" />
         <SidebarInset>
           <header className="flex h-14 shrink-0 items-center gap-2">
             <div className="flex flex-1 items-center gap-2 px-3">

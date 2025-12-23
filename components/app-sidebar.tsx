@@ -35,7 +35,6 @@ const data = {
       title: "My Forms",
       url: "/dashboard",
       icon: FileText,
-      isActive: true,
     },
     {
       title: "Analytics",
@@ -67,15 +66,26 @@ const data = {
   ],
 }
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({
+  activeItem,
+  ...props
+}: React.ComponentProps<typeof Sidebar> & {
+  activeItem?: string
+}) {
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false)
+
+  // Update items to set active based on prop
+  const navMainWithActive = data.navMain.map(item => ({
+    ...item,
+    isActive: item.title === activeItem
+  }))
 
   return (
     <Sidebar className="border-r-0" {...props}>
       <SidebarHeader>
         <TeamSwitcher teams={data.teams} />
         <NavMain
-          items={data.navMain}
+          items={navMainWithActive}
           createDialogOpen={createDialogOpen}
           onCreateDialogChange={setCreateDialogOpen}
         />
