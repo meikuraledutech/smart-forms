@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
 import { z } from "zod"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
@@ -16,6 +17,7 @@ import {
   FieldDescription,
   FieldGroup,
   FieldLabel,
+  FieldError,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 
@@ -33,37 +35,27 @@ const signupSchema = z
     path: ["confirmPassword"],
   })
 
+type SignupFormData = z.infer<typeof signupSchema>
+
 export function SignupForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
   const router = useRouter()
 
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [loading, setLoading] = useState(false)
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<SignupFormData>({
+    resolver: zodResolver(signupSchema),
+  })
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    const result = signupSchema.safeParse({
-      email,
-      password,
-      confirmPassword,
-    })
-
-    if (!result.success) {
-      toast.error(result.error.issues[0].message)
-      return
-    }
-
+  const onSubmit = async (data: SignupFormData) => {
     try {
-      setLoading(true)
-
       await api.post("/auth/register", {
-        username: email, // backend expects username
-        password,
+        username: data.email, // backend expects username
+        password: data.password,
       })
 
       toast.success("Account created successfully")
@@ -83,8 +75,6 @@ export function SignupForm({
         // Other client errors
         toast.error("Registration failed. Please try again.")
       }
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -94,7 +84,7 @@ export function SignupForm({
         <CardContent className="grid p-0 md:grid-cols-2">
           <form
             className="p-6 md:p-8"
-            onSubmit={handleSubmit}
+            onSubmit={handleSubmit(onSubmit)}
           >
             <FieldGroup>
               <div className="flex flex-col items-center gap-2 text-center">
@@ -110,10 +100,12 @@ export function SignupForm({
                   id="email"
                   type="email"
                   placeholder="m@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
+                  {...register("email")}
+                  disabled={isSubmitting}
                 />
+                {errors.email && (
+                  <FieldError>{errors.email.message}</FieldError>
+                )}
                 <FieldDescription>
                   We&apos;ll use this to contact you. We will not share your
                   email with anyone else.
@@ -127,10 +119,12 @@ export function SignupForm({
                     <Input
                       id="password"
                       type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      disabled={loading}
+                      {...register("password")}
+                      disabled={isSubmitting}
                     />
+                    {errors.password && (
+                      <FieldError>{errors.password.message}</FieldError>
+                    )}
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="confirm-password">
@@ -139,12 +133,12 @@ export function SignupForm({
                     <Input
                       id="confirm-password"
                       type="password"
-                      value={confirmPassword}
-                      onChange={(e) =>
-                        setConfirmPassword(e.target.value)
-                      }
-                      disabled={loading}
+                      {...register("confirmPassword")}
+                      disabled={isSubmitting}
                     />
+                    {errors.confirmPassword && (
+                      <FieldError>{errors.confirmPassword.message}</FieldError>
+                    )}
                   </Field>
                 </Field>
                 <FieldDescription>
@@ -156,9 +150,9 @@ export function SignupForm({
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={loading}
+                  disabled={isSubmitting}
                 >
-                  {loading ? "Creating account..." : "Create Account"}
+                  {isSubmitting ? "Creating account..." : "Create Account"}
                 </Button>
               </Field>
 

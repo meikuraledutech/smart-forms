@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
 import { z } from "zod"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
@@ -16,6 +17,7 @@ import {
   FieldDescription,
   FieldGroup,
   FieldLabel,
+  FieldError,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 
@@ -27,6 +29,8 @@ const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 })
 
+type LoginFormData = z.infer<typeof loginSchema>
+
 export function LoginForm({
   className,
   ...props
@@ -34,26 +38,17 @@ export function LoginForm({
   const router = useRouter()
   const login = useAuthStore((s) => s.login)
 
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [loading, setLoading] = useState(false)
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+  })
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    const result = loginSchema.safeParse({
-      email,
-      password,
-    })
-
-    if (!result.success) {
-      toast.error(result.error.issues[0].message)
-      return
-    }
-
+  const onSubmit = async (data: LoginFormData) => {
     try {
-      setLoading(true)
-      await login(email, password)
+      await login(data.email, data.password)
 
       toast.success("Login successful")
       router.replace("/dashboard")
@@ -69,8 +64,6 @@ export function LoginForm({
         // Fallback for other client errors
         toast.error("Login failed. Please try again.")
       }
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -80,13 +73,13 @@ export function LoginForm({
         <CardContent className="grid p-0 md:grid-cols-2">
           <form
             className="p-6 md:p-8"
-            onSubmit={handleSubmit}
+            onSubmit={handleSubmit(onSubmit)}
           >
             <FieldGroup>
               <div className="flex flex-col items-center gap-2 text-center">
                 <h1 className="text-2xl font-bold">Welcome back</h1>
                 <p className="text-muted-foreground text-balance">
-                  Login to your Acme Inc account
+                  Login to your Smart Forms account
                 </p>
               </div>
 
@@ -96,10 +89,12 @@ export function LoginForm({
                   id="email"
                   type="email"
                   placeholder="m@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
+                  {...register("email")}
+                  disabled={isSubmitting}
                 />
+                {errors.email && (
+                  <FieldError>{errors.email.message}</FieldError>
+                )}
               </Field>
 
               <Field>
@@ -115,19 +110,21 @@ export function LoginForm({
                 <Input
                   id="password"
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
+                  {...register("password")}
+                  disabled={isSubmitting}
                 />
+                {errors.password && (
+                  <FieldError>{errors.password.message}</FieldError>
+                )}
               </Field>
 
               <Field>
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={loading}
+                  disabled={isSubmitting}
                 >
-                  {loading ? "Logging in..." : "Login"}
+                  {isSubmitting ? "Logging in..." : "Login"}
                 </Button>
               </Field>
 
