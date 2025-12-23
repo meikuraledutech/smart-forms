@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Trash2 } from "lucide-react"
 
 import AuthGuard from "@/components/auth-guard"
 import {
@@ -25,6 +25,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import api from "@/lib/axios"
 import { getErrorMessage } from "@/lib/error-handler"
 
@@ -47,6 +58,7 @@ export default function FormDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("questions")
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   // Settings form state
   const [editTitle, setEditTitle] = useState("")
@@ -139,6 +151,26 @@ export default function FormDetailPage() {
       }
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDeleteForm = async () => {
+    try {
+      setDeleting(true)
+
+      await api.patch(`/forms/${formId}/delete`)
+
+      toast.success("Form deleted successfully")
+      router.push("/dashboard")
+    } catch (err: any) {
+      const serverError = getErrorMessage(err)
+      if (serverError) {
+        toast.error(serverError)
+      } else {
+        toast.error("Failed to delete form")
+      }
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -328,6 +360,50 @@ export default function FormDetailPage() {
                             >
                               {saving ? "Saving..." : "Save Changes"}
                             </Button>
+                          </div>
+
+                          {/* Danger Zone - Delete Form */}
+                          <div className="pt-8 border-t">
+                            <div className="space-y-4">
+                              <div>
+                                <h3 className="text-sm font-medium text-red-800">
+                                  Danger Zone
+                                </h3>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  Permanently delete this form and all its data
+                                </p>
+                              </div>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="destructive"
+                                    disabled={deleting}
+                                    className="bg-red-800 hover:bg-red-900"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete Form
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This action cannot be reversed. This will permanently delete
+                                      your form and remove all associated data from our servers.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={handleDeleteForm}
+                                      className="bg-red-800 text-white hover:bg-red-900"
+                                    >
+                                      {deleting ? "Deleting..." : "Delete"}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
                           </div>
                         </div>
                       </CardContent>
