@@ -22,6 +22,9 @@ import { Separator } from "@/components/ui/separator"
 import { NavActions } from "@/components/nav-actions"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import api from "@/lib/axios"
 import { getErrorMessage } from "@/lib/error-handler"
 
@@ -42,6 +45,13 @@ export default function FormDetailPage() {
   const [form, setForm] = useState<Form | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState("questions")
+  const [saving, setSaving] = useState(false)
+
+  // Settings form state
+  const [editTitle, setEditTitle] = useState("")
+  const [editDescription, setEditDescription] = useState("")
+  const [editStatus, setEditStatus] = useState<"draft" | "published">("draft")
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -51,6 +61,10 @@ export default function FormDetailPage() {
 
         const response = await api.get(`/forms/${formId}`)
         setForm(response.data)
+        // Initialize settings state
+        setEditTitle(response.data.title)
+        setEditDescription(response.data.description)
+        setEditStatus(response.data.status)
       } catch (err: any) {
         const serverError = getErrorMessage(err)
         if (serverError) {
@@ -72,6 +86,61 @@ export default function FormDetailPage() {
       fetchForm()
     }
   }, [formId])
+
+  // Handle hash-based routing
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace("#", "") || "questions"
+      setActiveTab(hash)
+    }
+
+    // Set initial tab from hash
+    handleHashChange()
+
+    // Listen for hash changes
+    window.addEventListener("hashchange", handleHashChange)
+    return () => window.removeEventListener("hashchange", handleHashChange)
+  }, [])
+
+  // Sync form data to edit fields when switching to settings tab
+  useEffect(() => {
+    if (form && activeTab === "settings") {
+      setEditTitle(form.title)
+      setEditDescription(form.description || "")
+      setEditStatus(form.status as "draft" | "published")
+    }
+  }, [activeTab, form])
+
+  const handleSaveSettings = async () => {
+    try {
+      setSaving(true)
+
+      await api.patch(`/forms/${formId}`, {
+        title: editTitle,
+        description: editDescription,
+        status: editStatus,
+      })
+
+      // Update local state
+      setForm({
+        ...form!,
+        title: editTitle,
+        description: editDescription,
+        status: editStatus,
+      })
+
+      toast.success("Settings updated successfully")
+    } catch (err: any) {
+      const serverError = getErrorMessage(err)
+      if (serverError) {
+        toast.error(serverError)
+      } else {
+        toast.error("Failed to update settings")
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <AuthGuard requireAuth>
@@ -129,57 +198,141 @@ export default function FormDetailPage() {
 
               {!loading && !error && form && (
                 <div className="space-y-6">
-                  {/* Form Details Card */}
-                  <Card>
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <CardTitle className="text-2xl">{form.title}</CardTitle>
-                          <CardDescription className="mt-2">
-                            {form.description || "No description provided"}
-                          </CardDescription>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                              form.status === "published"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-gray-100 text-gray-800"
-                            }`}
-                          >
-                            {form.status}
-                          </span>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-sm text-muted-foreground space-y-1">
-                        <p>Form ID: {form.id}</p>
-                        <p>Created: {new Date(form.created_at).toLocaleString()}</p>
-                        <p>Updated: {new Date(form.updated_at).toLocaleString()}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  {/* Tabs */}
+                  <div className="border-b">
+                    <nav className="flex gap-6">
+                      <a
+                        href="#questions"
+                        className={`pb-3 border-b-2 transition-colors ${
+                          activeTab === "questions"
+                            ? "border-primary text-foreground font-medium"
+                            : "border-transparent text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        Questions
+                      </a>
+                      <a
+                        href="#response"
+                        className={`pb-3 border-b-2 transition-colors ${
+                          activeTab === "response"
+                            ? "border-primary text-foreground font-medium"
+                            : "border-transparent text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        Response
+                      </a>
+                      <a
+                        href="#settings"
+                        className={`pb-3 border-b-2 transition-colors ${
+                          activeTab === "settings"
+                            ? "border-primary text-foreground font-medium"
+                            : "border-transparent text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        Settings
+                      </a>
+                    </nav>
+                  </div>
 
-                  {/* Form Builder Placeholder */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Form Fields</CardTitle>
-                      <CardDescription>
-                        Build your form by adding fields
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <p className="text-muted-foreground mb-4">
-                          No fields added yet. Start building your form by adding fields.
-                        </p>
-                        <Button disabled>
-                          Add Field (Coming Soon)
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  {/* Tab Content */}
+                  {activeTab === "questions" && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Form Questions</CardTitle>
+                        <CardDescription>
+                          Build your form by adding questions
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-col items-center justify-center py-12 text-center">
+                          <p className="text-muted-foreground">
+                            Questions tab content
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {activeTab === "response" && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Form Responses</CardTitle>
+                        <CardDescription>
+                          View and manage form responses
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-col items-center justify-center py-12 text-center">
+                          <p className="text-muted-foreground">
+                            Response tab content
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {activeTab === "settings" && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Form Settings</CardTitle>
+                        <CardDescription>
+                          Manage form settings and configuration
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-6">
+                          {/* Title */}
+                          <div className="space-y-2">
+                            <Label htmlFor="title">Title</Label>
+                            <Input
+                              id="title"
+                              value={editTitle}
+                              onChange={(e) => setEditTitle(e.target.value)}
+                              placeholder="Form title"
+                            />
+                          </div>
+
+                          {/* Description */}
+                          <div className="space-y-2">
+                            <Label htmlFor="description">Description</Label>
+                            <Input
+                              id="description"
+                              value={editDescription}
+                              onChange={(e) => setEditDescription(e.target.value)}
+                              placeholder="Form description"
+                            />
+                          </div>
+
+                          {/* Publish Status */}
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label htmlFor="publish-switch">Publish Form</Label>
+                              <p className="text-sm text-muted-foreground">
+                                Make this form available to the public
+                              </p>
+                            </div>
+                            <Switch
+                              id="publish-switch"
+                              checked={editStatus === "published"}
+                              onCheckedChange={(checked) =>
+                                setEditStatus(checked ? "published" : "draft")
+                              }
+                            />
+                          </div>
+
+                          {/* Save Button */}
+                          <div className="flex justify-end pt-4">
+                            <Button
+                              onClick={handleSaveSettings}
+                              disabled={saving || !editTitle.trim()}
+                            >
+                              {saving ? "Saving..." : "Save Changes"}
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               )}
             </div>
