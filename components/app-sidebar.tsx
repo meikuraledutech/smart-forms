@@ -3,7 +3,7 @@
 import * as React from "react"
 import {
   Command,
-  Home,
+  FileText,
   BarChart3,
   CreditCard,
   Settings2,
@@ -34,7 +34,7 @@ const data = {
     {
       title: "My Forms",
       url: "/dashboard",
-      icon: Home,
+      icon: FileText,
       isActive: true,
     },
     {
