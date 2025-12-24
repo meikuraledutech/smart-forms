@@ -294,7 +294,7 @@ export default function EditorPage() {
           </p>
         </div>
 
-        <Card className="p-6 border-0 shadow-none">
+        <Card className="p-6 pt-8 rounded-none">
           <div className="min-h-[400px] space-y-3">
             {blocks.map((block) => renderBlock(block))}
 
