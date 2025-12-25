@@ -145,7 +145,7 @@ export default function EditorPage() {
     setBlocks(removeBlock(blocks))
   }
 
-  const renderBlock = (block: Block, depth = 0): React.ReactNode => {
+  const renderBlock = (block: Block, depth = 0, index = 0): React.ReactNode => {
     const isCollapsed = collapsed.has(block.id)
     const hasChildren = block.children.length > 0
 
@@ -214,7 +214,7 @@ export default function EditorPage() {
           </div>
           {hasChildren && !isCollapsed && (
             <div className="mt-3 space-y-3" style={{ marginLeft: '24px' }}>
-              {block.children.map((child) => renderBlock(child, depth + 1))}
+              {block.children.map((child, idx) => renderBlock(child, depth + 1, idx))}
             </div>
           )}
         </div>
@@ -222,7 +222,7 @@ export default function EditorPage() {
     }
 
     return (
-      <div key={block.id}>
+      <div key={block.id} className={depth === 0 ? "pb-6 mb-6 border-b" : ""}>
         <div className="flex items-center gap-2" style={{ marginLeft: `${depth * 24}px` }}>
           {hasChildren ? (
             <Button
@@ -240,11 +240,19 @@ export default function EditorPage() {
           ) : (
             <div className="w-8 shrink-0" />
           )}
-          <Input
-            placeholder="Type your question..."
-            value={block.question}
-            onChange={(e) => updateBlockQuestion(block.id, e.target.value)}
-          />
+          <div className="relative flex-1">
+            {depth === 0 && (
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
+                {index + 1}.
+              </span>
+            )}
+            <Input
+              placeholder="Type your question..."
+              className={depth === 0 ? "pl-10" : ""}
+              value={block.question}
+              onChange={(e) => updateBlockQuestion(block.id, e.target.value)}
+            />
+          </div>
           <div className="flex items-center gap-1">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -277,7 +285,7 @@ export default function EditorPage() {
         </div>
         {hasChildren && !isCollapsed && (
           <div className="mt-3 space-y-3">
-            {block.children.map((child) => renderBlock(child, depth + 1))}
+            {block.children.map((child, idx) => renderBlock(child, depth + 1, idx))}
           </div>
         )}
       </div>
@@ -296,7 +304,7 @@ export default function EditorPage() {
 
         <Card className="p-6 pt-8 rounded-none">
           <div className="min-h-[400px] space-y-3">
-            {blocks.map((block) => renderBlock(block))}
+            {blocks.map((block, index) => renderBlock(block, 0, index))}
 
             <div className="flex items-center gap-1">
               <Button
