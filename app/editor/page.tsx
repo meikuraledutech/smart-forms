@@ -148,6 +148,32 @@ export default function EditorPage() {
   const renderBlock = (block: Block, depth = 0, index = 0): React.ReactNode => {
     const isCollapsed = collapsed.has(block.id)
     const hasChildren = block.children.length > 0
+    const hasTextInputChild = block.children.some(child => child.type === "question")
+
+    // Text Input display component
+    if (block.type === "question" && depth > 0) {
+      return (
+        <div key={block.id}>
+          <div className="flex items-center gap-2" style={{ marginLeft: `${depth * 24}px` }}>
+            <div className="w-8 shrink-0" />
+            <Input
+              placeholder="Enter label for text input..."
+              className="flex-1 border-0 border-b rounded-none"
+              value={block.question}
+              onChange={(e) => updateBlockQuestion(block.id, e.target.value)}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={() => deleteBlock(block.id)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )
+    }
 
     if (block.type === "option") {
       return (
@@ -183,25 +209,27 @@ export default function EditorPage() {
               />
             </div>
             <div className="flex items-center gap-1">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => addChild(block.id)}>
-                    Text
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => addOption(block.id)}>
-                    Options
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {!hasTextInputChild && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => addChild(block.id)}>
+                      Text Input
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => addOption(block.id)}>
+                      Options
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
@@ -254,25 +282,27 @@ export default function EditorPage() {
             />
           </div>
           <div className="flex items-center gap-1">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => addChild(block.id)}>
-                  Text
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => addOption(block.id)}>
-                  Options
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {!hasTextInputChild && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={() => addChild(block.id)}>
+                    Text Input
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => addOption(block.id)}>
+                    Options
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             <Button
               variant="ghost"
               size="icon"
