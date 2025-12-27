@@ -46,6 +46,9 @@ interface Form {
   title: string
   description: string
   status: string
+  auto_slug?: string
+  custom_slug?: string
+  accepting_responses?: boolean
   created_at: string
   updated_at: string
 }
@@ -87,6 +90,8 @@ export default function FormDetailPage() {
         setEditTitle(response.data.title)
         setEditDescription(response.data.description)
         setEditStatus(response.data.status)
+        // Initialize accepting responses state
+        setAcceptingResponses(response.data.accepting_responses ?? true)
       } catch (err: any) {
         const serverError = getErrorMessage(err)
         if (serverError) {
@@ -250,17 +255,16 @@ export default function FormDetailPage() {
         blocks: blocks,
       })
 
-      // Then publish the form
-      await api.patch(`/forms/${formId}`, {
-        title: form!.title,
-        description: form!.description,
-        status: "published",
-      })
+      // Then publish the form using new endpoint
+      const response = await api.patch(`/forms/${formId}/publish`, {})
 
-      // Update local state
+      // Update local state with new fields
       setForm({
         ...form!,
         status: "published",
+        auto_slug: response.data.links.auto_slug,
+        custom_slug: response.data.links.custom_slug,
+        accepting_responses: true,
       })
 
       toast.success("Form published successfully")
@@ -279,9 +283,37 @@ export default function FormDetailPage() {
   }
 
   const copyFormUrl = () => {
-    const formUrl = `${window.location.origin}/forms/${formId}`
+    const slug = form?.custom_slug || form?.auto_slug
+    const formUrl = `${window.location.origin}/f/${slug}`
     navigator.clipboard.writeText(formUrl)
     toast.success("Form URL copied to clipboard")
+  }
+
+  const handleToggleAcceptingResponses = async (accepting: boolean) => {
+    try {
+      setAcceptingResponses(accepting)
+
+      await api.patch(`/forms/${formId}/accepting-responses`, {
+        accepting: accepting,
+      })
+
+      // Update local form state
+      setForm({
+        ...form!,
+        accepting_responses: accepting,
+      })
+
+      toast.success(accepting ? "Now accepting responses" : "Stopped accepting responses")
+    } catch (err: any) {
+      // Revert on error
+      setAcceptingResponses(!accepting)
+      const serverError = getErrorMessage(err)
+      if (serverError) {
+        toast.error(serverError)
+      } else {
+        toast.error("Failed to update accepting responses")
+      }
+    }
   }
 
   return (
@@ -407,7 +439,7 @@ export default function FormDetailPage() {
                                       <div className="flex items-center gap-2">
                                         <Input
                                           readOnly
-                                          value={`${typeof window !== 'undefined' ? window.location.origin : ''}/forms/${formId}`}
+                                          value={`${typeof window !== 'undefined' ? window.location.origin : ''}/f/${form?.custom_slug || form?.auto_slug || ''}`}
                                           className="flex-1"
                                         />
                                         <Button
@@ -429,7 +461,7 @@ export default function FormDetailPage() {
                                       <Switch
                                         id="accepting-responses"
                                         checked={acceptingResponses}
-                                        onCheckedChange={setAcceptingResponses}
+                                        onCheckedChange={handleToggleAcceptingResponses}
                                       />
                                     </div>
                                   </div>
