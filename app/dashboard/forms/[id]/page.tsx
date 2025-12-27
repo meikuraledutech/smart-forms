@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { ArrowLeft, Trash2 } from "lucide-react"
+import { Trash2, Save, Settings, Copy } from "lucide-react"
 
 import AuthGuard from "@/components/auth-guard"
 import {
@@ -36,6 +36,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { FormEditor } from "@/components/form-editor"
+import { Block } from "@/types/form"
 import api from "@/lib/axios"
 import { getErrorMessage } from "@/lib/error-handler"
 
@@ -64,6 +66,14 @@ export default function FormDetailPage() {
   const [editTitle, setEditTitle] = useState("")
   const [editDescription, setEditDescription] = useState("")
   const [editStatus, setEditStatus] = useState<"draft" | "published">("draft")
+
+  // Form builder state
+  const [blocks, setBlocks] = useState<Block[]>([])
+  const [flowLoading, setFlowLoading] = useState(false)
+  const [flowSaving, setFlowSaving] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [acceptingResponses, setAcceptingResponses] = useState(true)
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false)
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -123,6 +133,42 @@ export default function FormDetailPage() {
     }
   }, [activeTab, form])
 
+  // Normalize blocks - convert null children to empty arrays
+  const normalizeBlocks = (blocks: any[]): Block[] => {
+    if (!blocks) return []
+    return blocks.map((block) => ({
+      ...block,
+      children: normalizeBlocks(block.children || []),
+    }))
+  }
+
+  // Fetch flow when switching to questions tab
+  useEffect(() => {
+    const loadFlow = async () => {
+      try {
+        setFlowLoading(true)
+        const response = await api.get(`/forms/${formId}/flow`)
+        const normalizedBlocks = normalizeBlocks(response.data.blocks || [])
+        setBlocks(normalizedBlocks)
+      } catch (err: any) {
+        // If flow doesn't exist yet (404), that's ok - start with empty blocks
+        if (err.response?.status !== 404) {
+          const serverError = getErrorMessage(err)
+          if (serverError) {
+            toast.error(serverError)
+          }
+        }
+      } finally {
+        setFlowLoading(false)
+      }
+    }
+
+    if (form && activeTab === "questions" && blocks.length === 0) {
+      loadFlow()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, form, formId])
+
   const handleSaveSettings = async () => {
     try {
       setSaving(true)
@@ -174,6 +220,70 @@ export default function FormDetailPage() {
     }
   }
 
+  const handleSaveFlow = async () => {
+    try {
+      setFlowSaving(true)
+
+      await api.patch(`/forms/${formId}/flow`, {
+        blocks: blocks,
+      })
+
+      toast.success("Flow saved successfully")
+    } catch (err: any) {
+      const serverError = getErrorMessage(err)
+      if (serverError) {
+        toast.error(serverError)
+      } else {
+        toast.error("Failed to save flow")
+      }
+    } finally {
+      setFlowSaving(false)
+    }
+  }
+
+  const handlePublish = async () => {
+    try {
+      setPublishing(true)
+
+      // First save the flow
+      await api.patch(`/forms/${formId}/flow`, {
+        blocks: blocks,
+      })
+
+      // Then publish the form
+      await api.patch(`/forms/${formId}`, {
+        title: form!.title,
+        description: form!.description,
+        status: "published",
+      })
+
+      // Update local state
+      setForm({
+        ...form!,
+        status: "published",
+      })
+
+      toast.success("Form published successfully")
+      // Keep dialog open to show URL
+      setPublishDialogOpen(true)
+    } catch (err: any) {
+      const serverError = getErrorMessage(err)
+      if (serverError) {
+        toast.error(serverError)
+      } else {
+        toast.error("Failed to publish form")
+      }
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  const copyFormUrl = () => {
+    const formUrl = `${window.location.origin}/forms/${formId}`
+    navigator.clipboard.writeText(formUrl)
+    toast.success("Form URL copied to clipboard")
+  }
+
   return (
     <AuthGuard requireAuth>
       <SidebarProvider>
@@ -202,17 +312,7 @@ export default function FormDetailPage() {
           </header>
 
           <div className="flex flex-1 flex-col gap-4 p-4">
-            <div className="mx-auto w-full max-w-4xl">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="mb-4 gap-2"
-                onClick={() => router.push("/dashboard")}
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back to Dashboard
-              </Button>
-
+            <div className="mx-auto w-full max-w-6xl">
               {loading && (
                 <div className="flex items-center justify-center py-12">
                   <div className="text-muted-foreground">Loading form...</div>
@@ -235,7 +335,7 @@ export default function FormDetailPage() {
                     <nav className="flex gap-6">
                       <a
                         href="#questions"
-                        className={`pb-3 border-b-2 transition-colors ${
+                        className={`pb-3 border-b-2 transition-colors text-sm ${
                           activeTab === "questions"
                             ? "border-primary text-foreground font-medium"
                             : "border-transparent text-muted-foreground hover:text-foreground"
@@ -245,7 +345,7 @@ export default function FormDetailPage() {
                       </a>
                       <a
                         href="#response"
-                        className={`pb-3 border-b-2 transition-colors ${
+                        className={`pb-3 border-b-2 transition-colors text-sm ${
                           activeTab === "response"
                             ? "border-primary text-foreground font-medium"
                             : "border-transparent text-muted-foreground hover:text-foreground"
@@ -255,7 +355,7 @@ export default function FormDetailPage() {
                       </a>
                       <a
                         href="#settings"
-                        className={`pb-3 border-b-2 transition-colors ${
+                        className={`pb-3 border-b-2 transition-colors text-sm ${
                           activeTab === "settings"
                             ? "border-primary text-foreground font-medium"
                             : "border-transparent text-muted-foreground hover:text-foreground"
@@ -268,21 +368,109 @@ export default function FormDetailPage() {
 
                   {/* Tab Content */}
                   {activeTab === "questions" && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Form Questions</CardTitle>
-                        <CardDescription>
-                          Build your form by adding questions
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex flex-col items-center justify-center py-12 text-center">
-                          <p className="text-muted-foreground">
-                            Questions tab content
+                    <div className="space-y-4">
+                      <div className="sticky top-0 z-10 bg-background pb-4 flex items-center justify-between border-b">
+                        <div>
+                          <h2 className="text-lg font-semibold">Form Questions</h2>
+                          <p className="text-sm text-muted-foreground">
+                            Build your form by adding questions
                           </p>
                         </div>
-                      </CardContent>
-                    </Card>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            onClick={handleSaveFlow}
+                            disabled={flowSaving}
+                            variant="outline"
+                          >
+                            <Save className="h-4 w-4 mr-2" />
+                            {flowSaving ? "Saving..." : "Save Flow"}
+                          </Button>
+                          <AlertDialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
+                            <AlertDialogTrigger asChild>
+                              <Button disabled={publishing}>
+                                <Settings className="h-4 w-4 mr-2" />
+                                {publishing ? "Publishing..." : form?.status === "published" ? "Published" : "Publish"}
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              {form?.status === "published" ? (
+                                <>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Form Published</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Your form is live and accepting responses
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <div className="space-y-4 py-4">
+                                    <div className="space-y-2">
+                                      <Label className="text-sm font-medium">Form URL</Label>
+                                      <div className="flex items-center gap-2">
+                                        <Input
+                                          readOnly
+                                          value={`${typeof window !== 'undefined' ? window.location.origin : ''}/forms/${formId}`}
+                                          className="flex-1"
+                                        />
+                                        <Button
+                                          size="icon"
+                                          variant="outline"
+                                          onClick={copyFormUrl}
+                                        >
+                                          <Copy className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                      <div className="space-y-0.5">
+                                        <Label htmlFor="accepting-responses">Accepting Responses</Label>
+                                        <p className="text-sm text-muted-foreground">
+                                          Allow users to submit this form
+                                        </p>
+                                      </div>
+                                      <Switch
+                                        id="accepting-responses"
+                                        checked={acceptingResponses}
+                                        onCheckedChange={setAcceptingResponses}
+                                      />
+                                    </div>
+                                  </div>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Close</AlertDialogCancel>
+                                  </AlertDialogFooter>
+                                </>
+                              ) : (
+                                <>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Publish this form?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This will make your form publicly available. Make sure you've saved all your changes before publishing.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handlePublish}>
+                                      {publishing ? "Publishing..." : "Publish"}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </>
+                              )}
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </div>
+
+                      {flowLoading ? (
+                        <Card className="p-6">
+                          <div className="flex items-center justify-center py-12">
+                            <p className="text-muted-foreground">Loading flow...</p>
+                          </div>
+                        </Card>
+                      ) : (
+                        <FormEditor
+                          initialBlocks={blocks}
+                          onBlocksChange={setBlocks}
+                        />
+                      )}
+                    </div>
                   )}
 
                   {activeTab === "response" && (
