@@ -1,7 +1,5 @@
+import { ProgressiveForm } from "@/components/progressive-form"
+
 export default function PublicFormPage() {
-  return (
-    <div>
-      <p>Public Form Page</p>
-    </div>
-  )
+  return <ProgressiveForm />
 }
