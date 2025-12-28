@@ -86,7 +86,7 @@ export function FormEditor({ initialBlocks = [], onBlocksChange }: FormEditorPro
 
     const newChild: Block = {
       id: Date.now().toString(),
-      type: "question",
+      type: "input",
       question: "",
       children: [],
     };
@@ -153,11 +153,11 @@ export function FormEditor({ initialBlocks = [], onBlocksChange }: FormEditorPro
     const children = block.children || [];
     const hasChildren = children.length > 0;
     const hasTextInputChild = children.some(
-      (child) => child.type === "question"
+      (child) => child.type === "input"
     );
 
     // Text Input display component
-    if (block.type === "question" && depth > 0) {
+    if (block.type === "input") {
       return (
         <div key={block.id}>
           <div

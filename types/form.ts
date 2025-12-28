@@ -1,6 +1,6 @@
 export type Block = {
   id: string;
-  type: "question" | "option";
+  type: "question" | "option" | "input";
   question: string;
   children: Block[];
 };
