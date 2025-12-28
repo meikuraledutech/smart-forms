@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import confetti from "canvas-confetti"
+import { API_BASE_URL } from "@/lib/api"
 
 // Dummy data for testing
 const dummyQuestions = [
@@ -191,6 +192,12 @@ interface ProgressiveFormProps {
   formDescription?: string
 }
 
+interface ResponseData {
+  flow_connection_id: string
+  answer_text: string
+  time_spent: number
+}
+
 export function ProgressiveForm({
   initialBlocks = dummyQuestions,
   formTitle = "Employee Survey",
@@ -203,7 +210,85 @@ export function ProgressiveForm({
   const [isDialogOpen, setIsDialogOpen] = useState(true)
   const [isCompleted, setIsCompleted] = useState(false)
 
+  // Response tracking
+  const [responses, setResponses] = useState<ResponseData[]>([])
+  const responsesRef = useRef<ResponseData[]>([])
+  const [flowPath, setFlowPath] = useState<string[]>([])
+  const flowPathRef = useRef<string[]>([])
+  const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now())
+  const [formStartTime] = useState<number>(Date.now())
+
   const currentQuestion = currentPath[currentPath.length - 1]
+
+  // Track question view
+  useEffect(() => {
+    if (currentQuestion?.id && !flowPathRef.current.includes(currentQuestion.id)) {
+      flowPathRef.current = [...flowPathRef.current, currentQuestion.id]
+      setFlowPath(flowPathRef.current)
+      setQuestionStartTime(Date.now())
+    }
+  }, [currentQuestion?.id])
+
+  const saveResponse = (blockId: string, answerText: string) => {
+    const timeSpent = Math.floor((Date.now() - questionStartTime) / 1000)
+    const newResponse: ResponseData = {
+      flow_connection_id: blockId,
+      answer_text: answerText,
+      time_spent: timeSpent
+    }
+    console.log('Saving response:', newResponse)
+    responsesRef.current = [...responsesRef.current, newResponse]
+    setResponses(responsesRef.current)
+    console.log('Updated responses array:', responsesRef.current)
+  }
+
+  const submitFormResponse = async (slug: string) => {
+    const totalTimeSpent = Math.floor((Date.now() - formStartTime) / 1000)
+
+    console.log('Current responses ref before submit:', responsesRef.current)
+    console.log('Current flowPath ref before submit:', flowPathRef.current)
+
+    if (responsesRef.current.length === 0) {
+      console.error('⚠️ Responses array is empty! Cannot submit.')
+      return
+    }
+
+    const payload = {
+      responses: responsesRef.current,
+      metadata: {
+        total_time_spent: totalTimeSpent,
+        flow_path: flowPathRef.current
+      }
+    }
+
+    console.log('Submitting response:', { slug, payload })
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/f/${slug}/responses`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: JSON.stringify(payload)
+      })
+
+      console.log('Response status:', response.status)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Response error:', errorText)
+        throw new Error(`Failed to submit response: ${response.status} - ${errorText}`)
+      }
+
+      const data = await response.json()
+      console.log('Response submitted:', data.response_id)
+      return data
+    } catch (error) {
+      console.error('Error submitting response:', error)
+      throw error
+    }
+  }
 
   const moveToNextTopLevelQuestion = () => {
     const nextIndex = currentQuestionIndex + 1
@@ -217,15 +302,32 @@ export function ProgressiveForm({
         }, 50)
       }, 300)
     } else {
-      // Form completed
+      // Form completed - submit response
       setIsDialogOpen(false)
-      setTimeout(() => {
+      setTimeout(async () => {
+        // Get slug from URL if available
+        const slug = window.location.pathname.split('/').pop()
+        if (slug) {
+          await submitFormResponse(slug)
+        }
         setIsCompleted(true)
       }, 300)
     }
   }
 
   const handleOptionSelect = (child: any) => {
+    // Save question response
+    saveResponse(currentQuestion.id, currentQuestion.question)
+
+    // Save selected option response
+    saveResponse(child.id, child.question)
+
+    // Track option in flow path
+    if (!flowPathRef.current.includes(child.id)) {
+      flowPathRef.current = [...flowPathRef.current, child.id]
+      setFlowPath(flowPathRef.current)
+    }
+
     // Save answer
     setAnswers({
       ...answers,
@@ -244,6 +346,7 @@ export function ProgressiveForm({
       // Has children - navigate to first child
       setTimeout(() => {
         setCurrentPath([...currentPath, child.children[0]])
+        setQuestionStartTime(Date.now())
         setTimeout(() => {
           setIsDialogOpen(true)
         }, 50)
@@ -280,6 +383,25 @@ export function ProgressiveForm({
   }
 
   const handleTextSubmit = (value: string) => {
+    // Save question response
+    saveResponse(currentQuestion.id, currentQuestion.question)
+
+    // Save text input response
+    // For text inputs with a single input child, save the input child's response
+    if (currentQuestion.children?.length === 1 && currentQuestion.children[0].type === "input") {
+      const inputChild = currentQuestion.children[0]
+      saveResponse(inputChild.id, value)
+
+      // Track input in flow path
+      if (!flowPathRef.current.includes(inputChild.id)) {
+        flowPathRef.current = [...flowPathRef.current, inputChild.id]
+        setFlowPath(flowPathRef.current)
+      }
+    } else {
+      // Direct text input question
+      saveResponse(currentQuestion.id, value)
+    }
+
     // Save text answer
     setAnswers({
       ...answers,

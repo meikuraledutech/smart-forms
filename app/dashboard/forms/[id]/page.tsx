@@ -26,6 +26,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -77,6 +85,14 @@ export default function FormDetailPage() {
   const [publishing, setPublishing] = useState(false)
   const [acceptingResponses, setAcceptingResponses] = useState(true)
   const [publishDialogOpen, setPublishDialogOpen] = useState(false)
+
+  // Response state
+  const [responses, setResponses] = useState<any[]>([])
+  const [responsesLoading, setResponsesLoading] = useState(false)
+  const [responsesError, setResponsesError] = useState<string | null>(null)
+  const [responsesTotal, setResponsesTotal] = useState(0)
+  const [responsesLimit, setResponsesLimit] = useState(10)
+  const [responsesOffset, setResponsesOffset] = useState(0)
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -316,6 +332,41 @@ export default function FormDetailPage() {
     }
   }
 
+  // Fetch responses
+  const fetchResponses = async () => {
+    try {
+      setResponsesLoading(true)
+      setResponsesError(null)
+
+      const response = await api.get(`/forms/${formId}/responses`, {
+        params: {
+          limit: responsesLimit,
+          offset: responsesOffset,
+        },
+      })
+
+      setResponses(response.data.items || [])
+      setResponsesTotal(response.data.total || 0)
+    } catch (err: any) {
+      const serverError = getErrorMessage(err)
+      if (serverError) {
+        setResponsesError(serverError)
+      } else {
+        setResponsesError("Failed to load responses")
+      }
+    } finally {
+      setResponsesLoading(false)
+    }
+  }
+
+  // Fetch responses when switching to response tab
+  useEffect(() => {
+    if (form && activeTab === "response") {
+      fetchResponses()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, form, formId, responsesLimit, responsesOffset])
+
   return (
     <AuthGuard requireAuth>
       <SidebarProvider>
@@ -384,6 +435,16 @@ export default function FormDetailPage() {
                         }`}
                       >
                         Response
+                      </a>
+                      <a
+                        href="#analytics"
+                        className={`pb-3 border-b-2 transition-colors text-sm ${
+                          activeTab === "analytics"
+                            ? "border-primary text-foreground font-medium"
+                            : "border-transparent text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        Analytics
                       </a>
                       <a
                         href="#settings"
@@ -510,13 +571,102 @@ export default function FormDetailPage() {
                       <CardHeader>
                         <CardTitle>Form Responses</CardTitle>
                         <CardDescription>
-                          View and manage form responses
+                          View and manage form responses ({responsesTotal} total)
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {responsesLoading ? (
+                          <div className="flex items-center justify-center py-12">
+                            <p className="text-muted-foreground">Loading responses...</p>
+                          </div>
+                        ) : responsesError ? (
+                          <div className="flex flex-col items-center justify-center py-12 text-center">
+                            <p className="text-destructive mb-2">Error loading responses</p>
+                            <p className="text-sm text-muted-foreground">{responsesError}</p>
+                            <Button onClick={fetchResponses} variant="outline" className="mt-4">
+                              Retry
+                            </Button>
+                          </div>
+                        ) : responses.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center py-12 text-center">
+                            <p className="text-muted-foreground">No responses yet</p>
+                            <p className="text-sm text-muted-foreground mt-2">
+                              Responses will appear here once users submit the form
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Response ID</TableHead>
+                                  <TableHead>Submitted At</TableHead>
+                                  <TableHead>Time Spent</TableHead>
+                                  <TableHead>Flow Path</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {responses.map((response) => (
+                                  <TableRow key={response.id}>
+                                    <TableCell className="font-mono text-xs">
+                                      {response.id.substring(0, 8)}...
+                                    </TableCell>
+                                    <TableCell>
+                                      {new Date(response.submitted_at).toLocaleString()}
+                                    </TableCell>
+                                    <TableCell>
+                                      {response.total_time_spent}s
+                                    </TableCell>
+                                    <TableCell className="text-xs">
+                                      {response.flow_path?.length || 0} steps
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+
+                            {/* Pagination */}
+                            <div className="flex items-center justify-between pt-4">
+                              <p className="text-sm text-muted-foreground">
+                                Showing {responsesOffset + 1} to {Math.min(responsesOffset + responsesLimit, responsesTotal)} of {responsesTotal}
+                              </p>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setResponsesOffset(Math.max(0, responsesOffset - responsesLimit))}
+                                  disabled={responsesOffset === 0}
+                                >
+                                  Previous
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setResponsesOffset(responsesOffset + responsesLimit)}
+                                  disabled={responsesOffset + responsesLimit >= responsesTotal}
+                                >
+                                  Next
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {activeTab === "analytics" && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Form Analytics</CardTitle>
+                        <CardDescription>
+                          View insights and analytics for your form
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
                         <div className="flex flex-col items-center justify-center py-12 text-center">
                           <p className="text-muted-foreground">
-                            Response tab content
+                            Analytics tab content
                           </p>
                         </div>
                       </CardContent>
