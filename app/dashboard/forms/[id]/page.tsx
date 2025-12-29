@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Trash2, Save, Settings, Copy } from "lucide-react"
+import { Trash2, Save, Settings, Copy, Eye } from "lucide-react"
 
 import AuthGuard from "@/components/auth-guard"
 import {
@@ -93,6 +93,12 @@ export default function FormDetailPage() {
   const [responsesTotal, setResponsesTotal] = useState(0)
   const [responsesLimit, setResponsesLimit] = useState(10)
   const [responsesOffset, setResponsesOffset] = useState(0)
+
+  // Individual response view state
+  const [viewingResponse, setViewingResponse] = useState<any>(null)
+  const [viewingAnswers, setViewingAnswers] = useState<any[]>([])
+  const [viewDialogOpen, setViewDialogOpen] = useState(false)
+  const [loadingResponseId, setLoadingResponseId] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -367,6 +373,26 @@ export default function FormDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, form, formId, responsesLimit, responsesOffset])
 
+  // Fetch individual response details
+  const fetchResponseDetails = async (responseId: string) => {
+    try {
+      setLoadingResponseId(responseId)
+      const response = await api.get(`/responses/${responseId}`)
+      setViewingResponse(response.data.response)
+      setViewingAnswers(response.data.answers || [])
+      setViewDialogOpen(true)
+    } catch (err: any) {
+      const serverError = getErrorMessage(err)
+      if (serverError) {
+        toast.error(serverError)
+      } else {
+        toast.error("Failed to load response details")
+      }
+    } finally {
+      setLoadingResponseId(null)
+    }
+  }
+
   return (
     <AuthGuard requireAuth>
       <SidebarProvider>
@@ -599,17 +625,18 @@ export default function FormDetailPage() {
                             <Table>
                               <TableHeader>
                                 <TableRow>
-                                  <TableHead>Response ID</TableHead>
+                                  <TableHead>#</TableHead>
                                   <TableHead>Submitted At</TableHead>
                                   <TableHead>Time Spent</TableHead>
                                   <TableHead>Flow Path</TableHead>
+                                  <TableHead className="text-right">Action</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
-                                {responses.map((response) => (
+                                {responses.map((response, index) => (
                                   <TableRow key={response.id}>
-                                    <TableCell className="font-mono text-xs">
-                                      {response.id.substring(0, 8)}...
+                                    <TableCell className="font-medium">
+                                      {responsesOffset + index + 1}
                                     </TableCell>
                                     <TableCell>
                                       {new Date(response.submitted_at).toLocaleString()}
@@ -619,6 +646,16 @@ export default function FormDetailPage() {
                                     </TableCell>
                                     <TableCell className="text-xs">
                                       {response.flow_path?.length || 0} steps
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => fetchResponseDetails(response.id)}
+                                        disabled={loadingResponseId === response.id}
+                                      >
+                                        <Eye className="h-4 w-4" />
+                                      </Button>
                                     </TableCell>
                                   </TableRow>
                                 ))}
@@ -651,6 +688,56 @@ export default function FormDetailPage() {
                             </div>
                           </div>
                         )}
+
+                        {/* View Response Dialog */}
+                        <AlertDialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+                          <AlertDialogContent className="max-w-2xl">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Response Details</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Submitted at {viewingResponse ? new Date(viewingResponse.submitted_at).toLocaleString() : ''}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+
+                            {viewingResponse && (
+                              <div className="space-y-4">
+                                {/* Response Summary */}
+                                <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">Total Time Spent</p>
+                                    <p className="text-sm font-medium">{viewingResponse.total_time_spent}s</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">Flow Path</p>
+                                    <p className="text-sm font-medium">{viewingResponse.flow_path?.length || 0} steps</p>
+                                  </div>
+                                </div>
+
+                                {/* Answers */}
+                                <div className="space-y-2">
+                                  <h4 className="text-sm font-semibold">Answers</h4>
+                                  <div className="space-y-3">
+                                    {viewingAnswers.map((answer, index) => (
+                                      <div key={answer.id} className="p-3 border rounded-lg">
+                                        <div className="flex items-start justify-between mb-2">
+                                          <p className="text-xs text-muted-foreground">Question {index + 1}</p>
+                                          {answer.time_spent && (
+                                            <p className="text-xs text-muted-foreground">{answer.time_spent}s</p>
+                                          )}
+                                        </div>
+                                        <p className="text-sm font-medium">{answer.answer_text}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Close</AlertDialogCancel>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </CardContent>
                     </Card>
                   )}
