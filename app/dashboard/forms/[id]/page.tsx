@@ -100,6 +100,11 @@ export default function FormDetailPage() {
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
   const [loadingResponseId, setLoadingResponseId] = useState<string | null>(null)
 
+  // Analytics state
+  const [analyticsNodes, setAnalyticsNodes] = useState<any[]>([])
+  const [analyticsLoading, setAnalyticsLoading] = useState(false)
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null)
+
   useEffect(() => {
     const fetchForm = async () => {
       try {
@@ -392,6 +397,34 @@ export default function FormDetailPage() {
       setLoadingResponseId(null)
     }
   }
+
+  // Fetch analytics
+  const fetchAnalytics = async () => {
+    try {
+      setAnalyticsLoading(true)
+      setAnalyticsError(null)
+
+      const response = await api.get(`/forms/${formId}/analytics/nodes`)
+      setAnalyticsNodes(response.data.nodes || [])
+    } catch (err: any) {
+      const serverError = getErrorMessage(err)
+      if (serverError) {
+        setAnalyticsError(serverError)
+      } else {
+        setAnalyticsError("Failed to load analytics")
+      }
+    } finally {
+      setAnalyticsLoading(false)
+    }
+  }
+
+  // Fetch analytics when switching to analytics tab
+  useEffect(() => {
+    if (form && activeTab === "analytics") {
+      fetchAnalytics()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, form, formId])
 
   return (
     <AuthGuard requireAuth>
@@ -747,15 +780,122 @@ export default function FormDetailPage() {
                       <CardHeader>
                         <CardTitle>Form Analytics</CardTitle>
                         <CardDescription>
-                          View insights and analytics for your form
+                          Node-level metrics and insights
                         </CardDescription>
                       </CardHeader>
                       <CardContent>
-                        <div className="flex flex-col items-center justify-center py-12 text-center">
-                          <p className="text-muted-foreground">
-                            Analytics tab content
-                          </p>
-                        </div>
+                        {analyticsLoading ? (
+                          <div className="flex items-center justify-center py-12">
+                            <p className="text-muted-foreground">Loading analytics...</p>
+                          </div>
+                        ) : analyticsError ? (
+                          <div className="flex flex-col items-center justify-center py-12 text-center">
+                            <p className="text-destructive mb-2">Error loading analytics</p>
+                            <p className="text-sm text-muted-foreground">{analyticsError}</p>
+                            <Button onClick={fetchAnalytics} variant="outline" className="mt-4">
+                              Retry
+                            </Button>
+                          </div>
+                        ) : analyticsNodes.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center py-12 text-center">
+                            <p className="text-muted-foreground">No analytics data available</p>
+                            <p className="text-sm text-muted-foreground mt-2">
+                              Analytics will appear once users submit responses
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-6">
+                            {/* Summary Cards */}
+                            <div className="grid grid-cols-4 gap-4">
+                              <Card>
+                                <CardHeader className="pb-2">
+                                  <CardDescription>Total Visits</CardDescription>
+                                  <CardTitle className="text-2xl">
+                                    {analyticsNodes.reduce((sum, node) => sum + node.visit_count, 0)}
+                                  </CardTitle>
+                                </CardHeader>
+                              </Card>
+                              <Card>
+                                <CardHeader className="pb-2">
+                                  <CardDescription>Total Answers</CardDescription>
+                                  <CardTitle className="text-2xl">
+                                    {analyticsNodes.reduce((sum, node) => sum + node.answer_count, 0)}
+                                  </CardTitle>
+                                </CardHeader>
+                              </Card>
+                              <Card>
+                                <CardHeader className="pb-2">
+                                  <CardDescription>Avg Time/Node</CardDescription>
+                                  <CardTitle className="text-2xl">
+                                    {Math.round(
+                                      analyticsNodes.reduce((sum, node) => sum + node.avg_time_spent, 0) /
+                                      analyticsNodes.length
+                                    )}s
+                                  </CardTitle>
+                                </CardHeader>
+                              </Card>
+                              <Card>
+                                <CardHeader className="pb-2">
+                                  <CardDescription>Total Nodes</CardDescription>
+                                  <CardTitle className="text-2xl">{analyticsNodes.length}</CardTitle>
+                                </CardHeader>
+                              </Card>
+                            </div>
+
+                            {/* Node Metrics Table */}
+                            <div>
+                              <h3 className="text-sm font-semibold mb-3">Node Performance</h3>
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Question</TableHead>
+                                    <TableHead>Type</TableHead>
+                                    <TableHead className="text-right">Visits</TableHead>
+                                    <TableHead className="text-right">Answers</TableHead>
+                                    <TableHead className="text-right">Skips</TableHead>
+                                    <TableHead className="text-right">Drop-offs</TableHead>
+                                    <TableHead className="text-right">Avg Time</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {analyticsNodes.map((node, index) => {
+                                    const skipRate = (node.skip_count / node.visit_count) * 100
+                                    const dropRate = (node.drop_off_count / node.visit_count) * 100
+                                    const isPainPoint = skipRate > 20 || dropRate > 30
+
+                                    return (
+                                      <TableRow key={node.flow_connection_id} className={isPainPoint ? "bg-red-50" : ""}>
+                                        <TableCell className="font-medium max-w-xs truncate">
+                                          {node.question_text || `Node ${index + 1}`}
+                                        </TableCell>
+                                        <TableCell>
+                                          <span className="text-xs px-2 py-1 bg-muted rounded">
+                                            {node.question_type || '-'}
+                                          </span>
+                                        </TableCell>
+                                        <TableCell className="text-right">{node.visit_count}</TableCell>
+                                        <TableCell className="text-right">{node.answer_count}</TableCell>
+                                        <TableCell className="text-right">
+                                          {node.skip_count}
+                                          {skipRate > 20 && (
+                                            <span className="ml-1 text-xs text-red-600">({skipRate.toFixed(0)}%)</span>
+                                          )}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                          {node.drop_off_count}
+                                          {dropRate > 30 && (
+                                            <span className="ml-1 text-xs text-red-600">({dropRate.toFixed(0)}%)</span>
+                                          )}
+                                        </TableCell>
+                                        <TableCell className="text-right">{Math.round(node.avg_time_spent)}s</TableCell>
+                                      </TableRow>
+                                    )
+                                  })}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   )}
