@@ -1,7 +1,7 @@
 // lib/api.ts
 
 // const DEV_API_URL = "https://7ca0cf1a82a3.ngrok-free.app"
-const DEV_API_URL = "https://267f10340f55.ngrok-free.app";
+const DEV_API_URL = "https://68908f4abcec.ngrok-free.app";
 function normalize(url: string) {
   return url.replace(/\/+$/, "");
 }

@@ -102,6 +102,7 @@ export default function FormDetailPage() {
 
   // Analytics state
   const [analyticsNodes, setAnalyticsNodes] = useState<any[]>([])
+  const [analyticsSummary, setAnalyticsSummary] = useState<any>(null)
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
   const [analyticsError, setAnalyticsError] = useState<string | null>(null)
 
@@ -406,6 +407,7 @@ export default function FormDetailPage() {
 
       const response = await api.get(`/forms/${formId}/analytics/nodes`)
       setAnalyticsNodes(response.data.nodes || [])
+      setAnalyticsSummary(response.data.summary || null)
     } catch (err: any) {
       const serverError = getErrorMessage(err)
       if (serverError) {
@@ -806,41 +808,42 @@ export default function FormDetailPage() {
                         ) : (
                           <div className="space-y-6">
                             {/* Summary Cards */}
-                            <div className="grid grid-cols-4 gap-4">
-                              <Card>
-                                <CardHeader className="pb-2">
-                                  <CardDescription>Total Visits</CardDescription>
-                                  <CardTitle className="text-2xl">
-                                    {analyticsNodes.reduce((sum, node) => sum + node.visit_count, 0)}
-                                  </CardTitle>
-                                </CardHeader>
-                              </Card>
-                              <Card>
-                                <CardHeader className="pb-2">
-                                  <CardDescription>Total Answers</CardDescription>
-                                  <CardTitle className="text-2xl">
-                                    {analyticsNodes.reduce((sum, node) => sum + node.answer_count, 0)}
-                                  </CardTitle>
-                                </CardHeader>
-                              </Card>
-                              <Card>
-                                <CardHeader className="pb-2">
-                                  <CardDescription>Avg Time/Node</CardDescription>
-                                  <CardTitle className="text-2xl">
-                                    {Math.round(
-                                      analyticsNodes.reduce((sum, node) => sum + node.avg_time_spent, 0) /
-                                      analyticsNodes.length
-                                    )}s
-                                  </CardTitle>
-                                </CardHeader>
-                              </Card>
-                              <Card>
-                                <CardHeader className="pb-2">
-                                  <CardDescription>Total Nodes</CardDescription>
-                                  <CardTitle className="text-2xl">{analyticsNodes.length}</CardTitle>
-                                </CardHeader>
-                              </Card>
-                            </div>
+                            {analyticsSummary && (
+                              <div className="grid grid-cols-4 gap-4">
+                                <Card>
+                                  <CardHeader className="pb-2">
+                                    <CardDescription>Total Responses</CardDescription>
+                                    <CardTitle className="text-2xl">
+                                      {analyticsSummary.total_responses}
+                                    </CardTitle>
+                                  </CardHeader>
+                                </Card>
+                                <Card>
+                                  <CardHeader className="pb-2">
+                                    <CardDescription>Total Answers</CardDescription>
+                                    <CardTitle className="text-2xl">
+                                      {analyticsSummary.total_answers}
+                                    </CardTitle>
+                                  </CardHeader>
+                                </Card>
+                                <Card>
+                                  <CardHeader className="pb-2">
+                                    <CardDescription>Avg Time/Node</CardDescription>
+                                    <CardTitle className="text-2xl">
+                                      {Math.round(analyticsSummary.avg_time_per_node)}s
+                                    </CardTitle>
+                                  </CardHeader>
+                                </Card>
+                                <Card>
+                                  <CardHeader className="pb-2">
+                                    <CardDescription>Total Nodes</CardDescription>
+                                    <CardTitle className="text-2xl">
+                                      {analyticsSummary.total_nodes}
+                                    </CardTitle>
+                                  </CardHeader>
+                                </Card>
+                              </div>
+                            )}
 
                             {/* Node Metrics Table */}
                             <div>
