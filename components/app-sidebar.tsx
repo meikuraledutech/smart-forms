@@ -5,16 +5,21 @@ import {
   Command,
   FileText,
   BarChart3,
-  CreditCard,
   Settings2,
   MessageCircleQuestion,
   Plus,
+  Users,
+  DollarSign,
+  Tag,
+  LayoutTemplate,
+  Ticket,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
 import { TeamSwitcher } from "@/components/team-switcher"
 import { CreateFormDialog } from "@/components/create-form-dialog"
+import { useAuthStore } from "@/lib/auth-store"
 import {
   Sidebar,
   SidebarContent,
@@ -42,14 +47,36 @@ const data = {
       icon: BarChart3,
     },
     {
-      title: "Billing",
-      url: "/dashboard/billing",
-      icon: CreditCard,
-    },
-    {
       title: "Settings",
       url: "/dashboard/settings",
       icon: Settings2,
+    },
+  ],
+  adminNavItems: [
+    {
+      title: "Templates",
+      url: "/dashboard/templates",
+      icon: LayoutTemplate,
+    },
+    {
+      title: "Pricing",
+      url: "/dashboard/pricing",
+      icon: Tag,
+    },
+    {
+      title: "Tickets",
+      url: "/dashboard/tickets",
+      icon: Ticket,
+    },
+    {
+      title: "Users",
+      url: "/dashboard/users",
+      icon: Users,
+    },
+    {
+      title: "Revenue",
+      url: "/dashboard/revenue",
+      icon: DollarSign,
     },
   ],
   navSecondary: [
@@ -73,9 +100,22 @@ export function AppSidebar({
   activeItem?: string
 }) {
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false)
+  const user = useAuthStore((s) => s.user)
+
+  // Combine nav items based on user role
+  const allNavItems = React.useMemo(() => {
+    const baseItems = [...data.navMain]
+
+    // Add admin items if user is super_admin
+    if (user?.role === "super_admin") {
+      return [...baseItems, ...data.adminNavItems]
+    }
+
+    return baseItems
+  }, [user?.role])
 
   // Update items to set active based on prop
-  const navMainWithActive = data.navMain.map(item => ({
+  const navMainWithActive = allNavItems.map(item => ({
     ...item,
     isActive: item.title === activeItem
   }))

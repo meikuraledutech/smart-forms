@@ -54,7 +54,7 @@ export function SignupForm({
   const onSubmit = async (data: SignupFormData) => {
     try {
       await api.post("/auth/register", {
-        username: data.email, // backend expects username
+        email: data.email,
         password: data.password,
       })
 

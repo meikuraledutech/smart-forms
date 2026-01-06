@@ -1,8 +1,15 @@
 import { create } from "zustand"
 import api, { refreshApi } from "@/lib/axios"
 
+type User = {
+    id: string
+    email: string
+    role: string
+}
+
 type AuthState = {
     accessToken: string | null
+    user: User | null
     isAuthenticated: boolean
     isLoading: boolean
 
@@ -14,6 +21,7 @@ type AuthState = {
 
 export const useAuthStore = create<AuthState>((set, get) => ({
     accessToken: null,
+    user: null,
     isAuthenticated: false,
     isLoading: true,
 
@@ -22,18 +30,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
      LOGIN
     ========================
     */
-    login: async (username, password) => {
+    login: async (email, password) => {
         const res = await api.post("/auth/login", {
-            username,
+            email,
             password,
         })
 
-        const { access_token, refresh_token } = res.data
+        const { access_token, refresh_token, user } = res.data
 
         localStorage.setItem("refresh_token", refresh_token)
+        localStorage.setItem("user", JSON.stringify(user))
 
         set({
             accessToken: access_token,
+            user: user,
             isAuthenticated: true,
         })
     },
@@ -45,8 +55,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     */
     logout: () => {
         localStorage.removeItem("refresh_token")
+        localStorage.removeItem("user")
         set({
             accessToken: null,
+            user: null,
             isAuthenticated: false,
         })
     },
@@ -58,6 +70,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     */
     initAuth: async () => {
         const refreshToken = localStorage.getItem("refresh_token")
+        const userStr = localStorage.getItem("user")
 
         if (!refreshToken) {
             set({ isLoading: false })
@@ -69,15 +82,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 refresh_token: refreshToken,
             })
 
+            const user = userStr ? JSON.parse(userStr) : null
+
             set({
                 accessToken: res.data.access_token,
+                user: user,
                 isAuthenticated: true,
                 isLoading: false,
             })
         } catch {
             localStorage.removeItem("refresh_token")
+            localStorage.removeItem("user")
             set({
                 accessToken: null,
+                user: null,
                 isAuthenticated: false,
                 isLoading: false,
             })
@@ -91,6 +109,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     */
     refreshAccessToken: async () => {
         const refreshToken = localStorage.getItem("refresh_token")
+        const userStr = localStorage.getItem("user")
         if (!refreshToken) return null
 
         try {
@@ -98,8 +117,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 refresh_token: refreshToken,
             })
 
+            const user = userStr ? JSON.parse(userStr) : null
+
             set({
                 accessToken: res.data.access_token,
+                user: user,
                 isAuthenticated: true,
             })
 
