@@ -37,10 +37,8 @@ import { getErrorMessage } from "@/lib/error-handler"
 // Validation schema
 const createPlanSchema = z.object({
   name: z.string().min(1, "Plan name is required"),
-  plan_type: z.enum(["free", "monthly", "yearly"], {
-    required_error: "Plan type is required",
-  }),
-  price_inr: z.string().min(0, "Price must be 0 or greater"),
+  plan_type: z.enum(["free", "monthly", "yearly"]),
+  price_inr: z.string().min(1, "Price is required"),
 })
 
 type CreatePlanData = z.infer<typeof createPlanSchema>
