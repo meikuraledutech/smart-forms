@@ -1,109 +1,113 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { toast } from "sonner"
-import { FileText, Search, LayoutTemplate } from "lucide-react"
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { FileText, Search, LayoutTemplate } from "lucide-react";
 
-import { AppSidebar } from "@/components/app-sidebar"
-import AuthGuard from "@/components/auth-guard"
-import { NavActions } from "@/components/nav-actions"
-import { FormCard } from "@/components/form-card"
-import { ShowMoreCard } from "@/components/show-more-card"
+import { AppSidebar } from "@/components/app-sidebar";
+import AuthGuard from "@/components/auth-guard";
+import { NavActions } from "@/components/nav-actions";
+import { FormCard } from "@/components/form-card";
+import { FormCardSkeleton } from "@/components/form-card-skeleton";
+import { ShowMoreCard } from "@/components/show-more-card";
 import {
   Breadcrumb,
   BreadcrumbItem,
   BreadcrumbList,
   BreadcrumbPage,
-} from "@/components/ui/breadcrumb"
-import { Separator } from "@/components/ui/separator"
+} from "@/components/ui/breadcrumb";
+import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
-} from "@/components/ui/sidebar"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import api from "@/lib/axios"
-import { getErrorMessage } from "@/lib/error-handler"
+} from "@/components/ui/sidebar";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import api from "@/lib/axios";
+import { getErrorMessage } from "@/lib/error-handler";
 
 interface Form {
-  id: string
-  title: string
-  description: string
-  status: string
-  is_template?: boolean
-  created_at: string
-  updated_at: string
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  is_template?: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export default function MyFormsPage() {
-  const router = useRouter()
-  const [forms, setForms] = useState<Form[]>([])
-  const [templates, setTemplates] = useState<Form[]>([])
-  const [loading, setLoading] = useState(true)
-  const [templatesLoading, setTemplatesLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [templatesExpanded, setTemplatesExpanded] = useState(false)
+  const router = useRouter();
+  const [forms, setForms] = useState<Form[]>([]);
+  const [templates, setTemplates] = useState<Form[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [templatesExpanded, setTemplatesExpanded] = useState(false);
 
   useEffect(() => {
-    fetchForms()
-    fetchTemplates()
-  }, [])
+    fetchForms();
+    fetchTemplates();
+  }, []);
 
   const fetchForms = async () => {
     try {
-      setLoading(true)
-      const response = await api.get("/forms")
-      setForms(response.data.items)
+      setLoading(true);
+      const response = await api.get("/forms");
+      setForms(response.data.items);
     } catch (error: any) {
-      const serverError = getErrorMessage(error)
+      const serverError = getErrorMessage(error);
       if (serverError) {
-        toast.error(serverError)
+        toast.error(serverError);
       } else {
-        toast.error("Failed to load forms")
+        toast.error("Failed to load forms");
       }
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const fetchTemplates = async () => {
     try {
-      setTemplatesLoading(true)
-      const response = await api.get("/templates")
-      setTemplates(response.data.templates || [])
+      setTemplatesLoading(true);
+      const response = await api.get("/templates");
+      setTemplates(response.data.templates || []);
     } catch (error: any) {
-      const serverError = getErrorMessage(error)
+      const serverError = getErrorMessage(error);
       if (serverError) {
-        toast.error(serverError)
+        toast.error(serverError);
       } else {
-        toast.error("Failed to load templates")
+        toast.error("Failed to load templates");
       }
     } finally {
-      setTemplatesLoading(false)
+      setTemplatesLoading(false);
     }
-  }
+  };
 
-  const handleCloneTemplate = async (templateId: string, templateTitle: string) => {
+  const handleCloneTemplate = async (
+    templateId: string,
+    templateTitle: string
+  ) => {
     try {
-      const response = await api.post(`/templates/${templateId}/clone`)
-      toast.success("Template cloned successfully")
+      const response = await api.post(`/templates/${templateId}/clone`);
+      toast.success("Template cloned successfully");
       // Redirect to the cloned form
-      router.push(`/dashboard/forms/${response.data.form.id}`)
+      router.push(`/dashboard/forms/${response.data.form.id}`);
     } catch (error: any) {
-      const serverError = getErrorMessage(error)
+      const serverError = getErrorMessage(error);
       if (serverError) {
-        toast.error(serverError)
+        toast.error(serverError);
       } else {
-        toast.error("Failed to clone template")
+        toast.error("Failed to clone template");
       }
     }
-  }
+  };
 
   const filteredForms = (forms || []).filter((form) =>
     form.title.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  );
 
   return (
     <AuthGuard requireAuth>
@@ -142,27 +146,37 @@ export default function MyFormsPage() {
                 </div>
 
                 {templatesLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <p className="text-muted-foreground">Loading templates...</p>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <FormCardSkeleton />
+                    <FormCardSkeleton />
+                    <FormCardSkeleton />
+                    <FormCardSkeleton />
                   </div>
                 ) : templates.length === 0 ? (
                   <Card>
                     <CardContent className="flex flex-col items-center justify-center py-12">
                       <LayoutTemplate className="h-12 w-12 text-muted-foreground mb-4" />
-                      <p className="text-muted-foreground">Currently no templates available</p>
+                      <p className="text-muted-foreground">
+                        Currently no templates available
+                      </p>
                     </CardContent>
                   </Card>
                 ) : (
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     {/* Show first 3 templates or all if expanded */}
-                    {(templatesExpanded ? templates : templates.slice(0, 3)).map((template) => (
+                    {(templatesExpanded
+                      ? templates
+                      : templates.slice(0, 3)
+                    ).map((template) => (
                       <FormCard
                         key={template.id}
                         title={template.title}
                         description={template.description}
                         status={template.status}
                         isTemplate={true}
-                        onClone={() => handleCloneTemplate(template.id, template.title)}
+                        onClone={() =>
+                          handleCloneTemplate(template.id, template.title)
+                        }
                       />
                     ))}
                     {/* Show More/Less Card - only if more than 3 templates */}
@@ -200,8 +214,15 @@ export default function MyFormsPage() {
 
               {/* Loading State */}
               {loading && (
-                <div className="flex items-center justify-center py-12">
-                  <p className="text-muted-foreground">Loading forms...</p>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  <FormCardSkeleton />
+                  <FormCardSkeleton />
+                  <FormCardSkeleton />
+                  <FormCardSkeleton />
+                  <FormCardSkeleton />
+                  <FormCardSkeleton />
+                  <FormCardSkeleton />
+                  <FormCardSkeleton />
                 </div>
               )}
 
@@ -234,21 +255,23 @@ export default function MyFormsPage() {
               )}
 
               {/* No Search Results */}
-              {!loading && (forms || []).length > 0 && filteredForms.length === 0 && (
-                <Card>
-                  <CardContent className="flex flex-col items-center justify-center py-12">
-                    <Search className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="font-semibold mb-2">No forms found</h3>
-                    <p className="text-muted-foreground">
-                      Try adjusting your search query.
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
+              {!loading &&
+                (forms || []).length > 0 &&
+                filteredForms.length === 0 && (
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center py-12">
+                      <Search className="h-12 w-12 text-muted-foreground mb-4" />
+                      <h3 className="font-semibold mb-2">No forms found</h3>
+                      <p className="text-muted-foreground">
+                        Try adjusting your search query.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
             </div>
           </div>
         </SidebarInset>
       </SidebarProvider>
     </AuthGuard>
-  )
+  );
 }
