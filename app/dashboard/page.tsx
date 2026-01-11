@@ -118,10 +118,19 @@ export default function MyFormsPage() {
 
   return (
     <AuthGuard requireAuth>
-      {cloningId && <FullscreenLoader text="Cloning template..." />}
       <SidebarProvider>
         <AppSidebar activeItem="My Forms" />
         <SidebarInset>
+          {cloningId && (
+            <div className="fixed inset-0 left-[var(--sidebar-width)] z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+              <div className="text-center">
+                <div className="mb-2 text-lg font-medium">Cloning template...</div>
+                <div className="h-1 w-40 overflow-hidden rounded bg-muted mx-auto">
+                  <div className="h-full w-1/2 animate-pulse bg-primary" />
+                </div>
+              </div>
+            </div>
+          )}
           <header className="flex h-14 shrink-0 items-center gap-2">
             <div className="flex flex-1 items-center gap-2 px-3">
               <SidebarTrigger />
