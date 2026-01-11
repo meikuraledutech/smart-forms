@@ -1,0 +1,17 @@
+{
+  "name": "Smart Forms",
+  "short_name": "Smart Forms",
+  "description": "Build intelligent forms with conditional logic and dynamic question flows",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#6366F1",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

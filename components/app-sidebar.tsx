@@ -20,6 +20,7 @@ import { NavSecondary } from "@/components/nav-secondary"
 import { TeamSwitcher } from "@/components/team-switcher"
 import { CreateFormDialog } from "@/components/create-form-dialog"
 import { useAuthStore } from "@/lib/auth-store"
+import { SmartFormsIcon } from "@/components/smart-forms-icon"
 import {
   Sidebar,
   SidebarContent,
@@ -31,7 +32,7 @@ const data = {
   teams: [
     {
       name: "Smart Forms",
-      logo: Command,
+      logo: SmartFormsIcon,
       plan: "Free",
     }
   ],

@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/lib/auth-store"
-import { FileText, Zap, BarChart3, Lock, Sparkles, ArrowRight, GitBranch, Network, Target, TrendingUp, Heart, CheckCircle2, X } from "lucide-react"
+import { Zap, BarChart3, Lock, Sparkles, ArrowRight, GitBranch, Network, Target, TrendingUp, Heart, CheckCircle2, X } from "lucide-react"
+import { SmartFormsIcon } from "@/components/smart-forms-icon"
 import { useEffect } from "react"
 
 export default function LandingPage() {
@@ -81,7 +82,7 @@ export default function LandingPage() {
       <nav className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FileText className="h-6 w-6" />
+            <SmartFormsIcon className="h-6 w-6 text-primary" />
             <span className="text-xl font-bold">Smart Forms</span>
           </div>
           <div className="flex items-center gap-4">
@@ -275,7 +276,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 py-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
+              <SmartFormsIcon className="h-5 w-5 text-primary" />
               <span className="font-semibold">Smart Forms</span>
             </div>
             <p className="text-sm text-muted-foreground">
