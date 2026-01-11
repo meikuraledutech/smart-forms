@@ -11,6 +11,7 @@ import { NavActions } from "@/components/nav-actions";
 import { FormCard } from "@/components/form-card";
 import { FormCardSkeleton } from "@/components/form-card-skeleton";
 import { ShowMoreCard } from "@/components/show-more-card";
+import FullscreenLoader from "@/components/fullscreen-loader";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -46,6 +47,7 @@ export default function MyFormsPage() {
   const [templatesLoading, setTemplatesLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [templatesExpanded, setTemplatesExpanded] = useState(false);
+  const [cloningId, setCloningId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchForms();
@@ -90,12 +92,17 @@ export default function MyFormsPage() {
     templateId: string,
     templateTitle: string
   ) => {
+    // Prevent multiple clicks
+    if (cloningId) return;
+
     try {
+      setCloningId(templateId);
       const response = await api.post(`/templates/${templateId}/clone`);
       toast.success("Template cloned successfully");
       // Redirect to the cloned form
       router.push(`/dashboard/forms/${response.data.form.id}`);
     } catch (error: any) {
+      setCloningId(null);
       const serverError = getErrorMessage(error);
       if (serverError) {
         toast.error(serverError);
@@ -111,6 +118,7 @@ export default function MyFormsPage() {
 
   return (
     <AuthGuard requireAuth>
+      {cloningId && <FullscreenLoader text="Cloning template..." />}
       <SidebarProvider>
         <AppSidebar activeItem="My Forms" />
         <SidebarInset>
