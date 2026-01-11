@@ -37,6 +37,9 @@ export function FormCard({ title, description, status, isTemplate, onClick, onCl
           alt={title}
           fill
           className="object-contain"
+          priority={false}
+          loading="lazy"
+          quality={85}
         />
       </div>
 
