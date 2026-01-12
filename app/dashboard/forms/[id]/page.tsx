@@ -294,6 +294,7 @@ export default function FormDetailPage() {
         custom_slug: response.data.links.custom_slug,
         accepting_responses: true,
       })
+      setAcceptingResponses(true)
 
       toast.success("Form published successfully")
       // Keep dialog open to show URL
