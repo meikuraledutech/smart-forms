@@ -31,6 +31,7 @@ export default function AIFormsPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [generatedForm, setGeneratedForm] = useState<GeneratedForm | null>(null)
+  const [chatInput, setChatInput] = useState("")
 
   const toggleCollapse = (id: string) => {
     setCollapsed((prev) => {
@@ -135,6 +136,44 @@ export default function AIFormsPage() {
     }
   }
 
+  const handleSendMessage = async () => {
+    if (!chatInput.trim() || isLoading || !conversationId) return
+
+    const userMessage = chatInput.trim()
+    setChatInput("")
+    setIsLoading(true)
+
+    // Add user message immediately
+    const newUserMessage = { id: Date.now().toString(), role: "user" as const, content: userMessage }
+    setMessages(prev => [...prev, newUserMessage])
+
+    try {
+      const response = await aiApi.sendMessage(conversationId, userMessage)
+      setGeneratedForm(response.form)
+
+      // Add assistant message
+      const assistantMessage = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant" as const,
+        content: `Updated: ${response.form.title} - ${response.form.blocks.length} questions`
+      }
+      setMessages(prev => [...prev, assistantMessage])
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to update form")
+      // Remove user message on error
+      setMessages(prev => prev.filter(m => m.id !== newUserMessage.id))
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleChatKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      handleSendMessage()
+    }
+  }
+
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace("#", "") || "editor"
@@ -235,12 +274,18 @@ export default function AIFormsPage() {
                         placeholder="Refine your form..."
                         rows={2}
                         className="pr-12 resize-none"
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={handleChatKeyDown}
+                        disabled={isLoading}
                       />
                       <Button
                         size="icon"
                         className="absolute right-2 bottom-2"
+                        onClick={handleSendMessage}
+                        disabled={!chatInput.trim() || isLoading}
                       >
-                        <Send className="h-4 w-4" />
+                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                       </Button>
                     </div>
                   </div>
