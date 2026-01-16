@@ -1,9 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Send, ChevronRight, ChevronDown } from "lucide-react"
+import { Send, ChevronRight, ChevronDown, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { aiApi, GeneratedForm } from "@/lib/ai-api"
 import { AppSidebar } from "@/components/app-sidebar"
 import AuthGuard from "@/components/auth-guard"
 import { NavActions } from "@/components/nav-actions"
@@ -20,71 +22,15 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 
-const dummyMessages = [
-  { id: "1", role: "user" as const, content: "Create a customer feedback form with 5 questions" },
-  { id: "2", role: "assistant" as const, content: "Customer Feedback Form - 5 questions generated" },
-  { id: "3", role: "user" as const, content: "Add a question about product quality" },
-  { id: "4", role: "assistant" as const, content: "Updated form with product quality question" },
-]
-
-const dummyForm = {
-  title: "Customer Feedback Form",
-  description: "Help us improve our services",
-  blocks: [
-    {
-      id: "1",
-      type: "question",
-      question: "How satisfied are you with our service?",
-      children: [
-        { id: "1-1", type: "option", question: "Very Satisfied", children: [] },
-        { id: "1-2", type: "option", question: "Satisfied", children: [] },
-        { id: "1-3", type: "option", question: "Neutral", children: [] },
-        {
-          id: "1-4",
-          type: "option",
-          question: "Dissatisfied",
-          children: [
-            { id: "1-4-1", type: "question", question: "What was the issue?", children: [] }
-          ]
-        },
-      ]
-    },
-    {
-      id: "2",
-      type: "question",
-      question: "How would you rate the product quality?",
-      children: [
-        { id: "2-1", type: "option", question: "Excellent", children: [] },
-        { id: "2-2", type: "option", question: "Good", children: [] },
-        { id: "2-3", type: "option", question: "Average", children: [] },
-        { id: "2-4", type: "option", question: "Poor", children: [] },
-      ]
-    },
-    {
-      id: "3",
-      type: "question",
-      question: "Would you recommend us to others?",
-      children: [
-        { id: "3-1", type: "option", question: "Yes", children: [] },
-        { id: "3-2", type: "option", question: "No", children: [] },
-        { id: "3-3", type: "option", question: "Maybe", children: [] },
-      ]
-    },
-    {
-      id: "4",
-      type: "question",
-      question: "Any additional comments?",
-      children: []
-    },
-  ]
-}
-
 export default function AIFormsPage() {
   const [activeTab, setActiveTab] = useState("editor")
   const [hasForm, setHasForm] = useState(false)
   const [inputValue, setInputValue] = useState("")
-  const [messages, setMessages] = useState<typeof dummyMessages>([])
+  const [messages, setMessages] = useState<{ id: string; role: "user" | "assistant"; content: string }[]>([])
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [isLoading, setIsLoading] = useState(false)
+  const [conversationId, setConversationId] = useState<string | null>(null)
+  const [generatedForm, setGeneratedForm] = useState<GeneratedForm | null>(null)
 
   const toggleCollapse = (id: string) => {
     setCollapsed((prev) => {
@@ -98,16 +44,17 @@ export default function AIFormsPage() {
     })
   }
 
-  const renderBlock = (block: typeof dummyForm.blocks[0], depth = 0, index = 0): React.ReactNode => {
-    const isCollapsed = collapsed.has(block.id)
+  const renderBlock = (block: any, depth = 0, index = 0): React.ReactNode => {
+    const blockKey = block.id || `${depth}-${index}`
+    const isCollapsed = collapsed.has(blockKey)
     const hasChildren = block.children && block.children.length > 0
 
     if (block.type === "option") {
       return (
-        <div key={block.id} style={{ marginLeft: `${depth * 20}px` }}>
+        <div key={blockKey} style={{ marginLeft: `${depth * 20}px` }}>
           <div className="flex items-center gap-2 py-1.5">
             {hasChildren ? (
-              <button onClick={() => toggleCollapse(block.id)} className="p-0.5 hover:bg-muted rounded">
+              <button onClick={() => toggleCollapse(blockKey)} className="p-0.5 hover:bg-muted rounded">
                 {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </button>
             ) : (
@@ -126,10 +73,10 @@ export default function AIFormsPage() {
     }
 
     return (
-      <div key={block.id} className={depth === 0 ? "pb-3 mb-3 border-b last:border-b-0" : ""} style={{ marginLeft: `${depth * 20}px` }}>
+      <div key={blockKey} className={depth === 0 ? "pb-3 mb-3 border-b last:border-b-0" : ""} style={{ marginLeft: `${depth * 20}px` }}>
         <div className="flex items-center gap-2 py-1.5">
           {hasChildren ? (
-            <button onClick={() => toggleCollapse(block.id)} className="p-0.5 hover:bg-muted rounded">
+            <button onClick={() => toggleCollapse(blockKey)} className="p-0.5 hover:bg-muted rounded">
               {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </button>
           ) : (
@@ -147,10 +94,38 @@ export default function AIFormsPage() {
     )
   }
 
-  const handleSubmit = () => {
-    if (!inputValue.trim()) return
-    setMessages(dummyMessages)
+  const handleSubmit = async () => {
+    if (!inputValue.trim() || isLoading) return
+
+    const userMessage = inputValue.trim()
+    setInputValue("")
+    setIsLoading(true)
+
+    // Add user message immediately
+    const newUserMessage = { id: Date.now().toString(), role: "user" as const, content: userMessage }
+    setMessages(prev => [...prev, newUserMessage])
     setHasForm(true)
+
+    try {
+      const response = await aiApi.createConversation(userMessage)
+      setConversationId(response.conversation_id)
+      setGeneratedForm(response.form)
+
+      // Add assistant message
+      const assistantMessage = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant" as const,
+        content: `${response.form.title} - ${response.form.blocks.length} questions generated`
+      }
+      setMessages(prev => [...prev, assistantMessage])
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to generate form")
+      // Remove user message on error
+      setMessages(prev => prev.filter(m => m.id !== newUserMessage.id))
+      setHasForm(false)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -216,9 +191,9 @@ export default function AIFormsPage() {
                       size="icon"
                       className="absolute right-2 bottom-2"
                       onClick={handleSubmit}
-                      disabled={!inputValue.trim()}
+                      disabled={!inputValue.trim() || isLoading}
                     >
-                      <Send className="h-4 w-4" />
+                      {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                     </Button>
                   </div>
                 </div>
@@ -245,6 +220,14 @@ export default function AIFormsPage() {
                         </div>
                       </div>
                     ))}
+                    {isLoading && (
+                      <div className="flex justify-start">
+                        <div className="bg-muted rounded-lg px-3 py-2 text-sm flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Generating...
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="p-4 border-t">
                     <div className="relative">
@@ -295,13 +278,24 @@ export default function AIFormsPage() {
                   <div className="flex-1 p-4 overflow-y-auto">
                     {activeTab === "editor" && (
                       <div>
-                        <div className="mb-4">
-                          <h3 className="text-lg font-semibold">{dummyForm.title}</h3>
-                          <p className="text-sm text-muted-foreground">{dummyForm.description}</p>
-                        </div>
-                        <div>
-                          {dummyForm.blocks.map((block, index) => renderBlock(block, 0, index))}
-                        </div>
+                        {isLoading && !generatedForm ? (
+                          <div className="flex items-center justify-center py-12">
+                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                            <span className="ml-2 text-muted-foreground">Generating form...</span>
+                          </div>
+                        ) : generatedForm ? (
+                          <>
+                            <div className="mb-4">
+                              <h3 className="text-lg font-semibold">{generatedForm.title}</h3>
+                              <p className="text-sm text-muted-foreground">{generatedForm.description}</p>
+                            </div>
+                            <div>
+                              {generatedForm.blocks.map((block, index) => renderBlock(block as any, 0, index))}
+                            </div>
+                          </>
+                        ) : (
+                          <p className="text-muted-foreground text-sm">No form generated yet</p>
+                        )}
                       </div>
                     )}
                     {activeTab === "preview" && (
