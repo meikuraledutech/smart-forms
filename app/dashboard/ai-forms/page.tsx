@@ -1,68 +1,80 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { Send, ChevronRight, ChevronDown, Loader2 } from "lucide-react"
-import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { aiApi, GeneratedForm } from "@/lib/ai-api"
-import { FormPreview } from "@/components/form-preview"
-import { AppSidebar } from "@/components/app-sidebar"
-import AuthGuard from "@/components/auth-guard"
-import { NavActions } from "@/components/nav-actions"
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Send, ChevronRight, ChevronDown, Loader2, Plus } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { aiApi, GeneratedForm } from "@/lib/ai-api";
+import { FormPreview } from "@/components/form-preview";
+import { AppSidebar } from "@/components/app-sidebar";
+import AuthGuard from "@/components/auth-guard";
+import { NavActions } from "@/components/nav-actions";
 import {
   Breadcrumb,
   BreadcrumbItem,
   BreadcrumbList,
   BreadcrumbPage,
-} from "@/components/ui/breadcrumb"
-import { Separator } from "@/components/ui/separator"
+} from "@/components/ui/breadcrumb";
+import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
 
 export default function AIFormsPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState("editor")
-  const [hasForm, setHasForm] = useState(false)
-  const [inputValue, setInputValue] = useState("")
-  const [messages, setMessages] = useState<{ id: string; role: "user" | "assistant"; content: string }[]>([])
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
-  const [isLoading, setIsLoading] = useState(false)
-  const [conversationId, setConversationId] = useState<string | null>(null)
-  const [generatedForm, setGeneratedForm] = useState<GeneratedForm | null>(null)
-  const [chatInput, setChatInput] = useState("")
-  const [initialLoading, setInitialLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState("editor");
+  const [hasForm, setHasForm] = useState(false);
+  const [inputValue, setInputValue] = useState("");
+  const [messages, setMessages] = useState<
+    { id: string; role: "user" | "assistant"; content: string }[]
+  >([]);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [isLoading, setIsLoading] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [generatedForm, setGeneratedForm] = useState<GeneratedForm | null>(
+    null
+  );
+  const [chatInput, setChatInput] = useState("");
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [isCreatingForm, setIsCreatingForm] = useState(false);
 
   const toggleCollapse = (id: string) => {
     setCollapsed((prev) => {
-      const next = new Set(prev)
+      const next = new Set(prev);
       if (next.has(id)) {
-        next.delete(id)
+        next.delete(id);
       } else {
-        next.add(id)
+        next.add(id);
       }
-      return next
-    })
-  }
+      return next;
+    });
+  };
 
   const renderBlock = (block: any, depth = 0, index = 0): React.ReactNode => {
-    const blockKey = block.id || `${depth}-${index}`
-    const isCollapsed = collapsed.has(blockKey)
-    const hasChildren = block.children && block.children.length > 0
+    const blockKey = block.id || `${depth}-${index}`;
+    const isCollapsed = collapsed.has(blockKey);
+    const hasChildren = block.children && block.children.length > 0;
 
     if (block.type === "option") {
       return (
         <div key={blockKey} style={{ marginLeft: `${depth * 20}px` }}>
           <div className="flex items-center gap-2 py-1.5">
             {hasChildren ? (
-              <button onClick={() => toggleCollapse(blockKey)} className="p-0.5 hover:bg-muted rounded">
-                {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              <button
+                onClick={() => toggleCollapse(blockKey)}
+                className="p-0.5 hover:bg-muted rounded"
+              >
+                {isCollapsed ? (
+                  <ChevronRight className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
               </button>
             ) : (
               <span className="w-5" />
@@ -72,179 +84,236 @@ export default function AIFormsPage() {
           </div>
           {hasChildren && !isCollapsed && (
             <div>
-              {block.children.map((child: any, idx: number) => renderBlock(child, depth + 1, idx))}
+              {block.children.map((child: any, idx: number) =>
+                renderBlock(child, depth + 1, idx)
+              )}
             </div>
           )}
         </div>
-      )
+      );
     }
 
     return (
-      <div key={blockKey} className={depth === 0 ? "pb-3 mb-3 border-b last:border-b-0" : ""} style={{ marginLeft: `${depth * 20}px` }}>
+      <div
+        key={blockKey}
+        className={depth === 0 ? "pb-3 mb-3 border-b last:border-b-0" : ""}
+        style={{ marginLeft: `${depth * 20}px` }}
+      >
         <div className="flex items-center gap-2 py-1.5">
           {hasChildren ? (
-            <button onClick={() => toggleCollapse(blockKey)} className="p-0.5 hover:bg-muted rounded">
-              {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            <button
+              onClick={() => toggleCollapse(blockKey)}
+              className="p-0.5 hover:bg-muted rounded"
+            >
+              {isCollapsed ? (
+                <ChevronRight className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
             </button>
           ) : (
             <span className="w-5" />
           )}
-          {depth === 0 && <span className="text-muted-foreground font-medium">{index + 1}.</span>}
+          {depth === 0 && (
+            <span className="text-muted-foreground font-medium">
+              {index + 1}.
+            </span>
+          )}
           <span className="text-sm font-medium">{block.question}</span>
         </div>
         {hasChildren && !isCollapsed && (
           <div>
-            {block.children.map((child: any, idx: number) => renderBlock(child, depth + 1, idx))}
+            {block.children.map((child: any, idx: number) =>
+              renderBlock(child, depth + 1, idx)
+            )}
           </div>
         )}
       </div>
-    )
-  }
+    );
+  };
 
   const handleSubmit = async () => {
-    if (!inputValue.trim() || isLoading) return
+    if (!inputValue.trim() || isLoading) return;
 
-    const userMessage = inputValue.trim()
-    setInputValue("")
-    setIsLoading(true)
+    const userMessage = inputValue.trim();
+    setInputValue("");
+    setIsLoading(true);
 
     // Add user message immediately
-    const newUserMessage = { id: Date.now().toString(), role: "user" as const, content: userMessage }
-    setMessages(prev => [...prev, newUserMessage])
-    setHasForm(true)
+    const newUserMessage = {
+      id: Date.now().toString(),
+      role: "user" as const,
+      content: userMessage,
+    };
+    setMessages((prev) => [...prev, newUserMessage]);
+    setHasForm(true);
 
     try {
-      const response = await aiApi.createConversation(userMessage)
-      setConversationId(response.conversation_id)
-      setGeneratedForm(response.form)
+      const response = await aiApi.createConversation(userMessage);
+      setConversationId(response.conversation_id);
+      setGeneratedForm(response.form);
 
       // Update URL with conversation ID
-      router.push(`/dashboard/ai-forms?conv=${response.conversation_id}`, { scroll: false })
+      router.push(`/dashboard/ai-forms?conv=${response.conversation_id}`, {
+        scroll: false,
+      });
 
       // Add assistant message
       const assistantMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant" as const,
-        content: `${response.form.title} - ${response.form.blocks.length} questions generated`
-      }
-      setMessages(prev => [...prev, assistantMessage])
+        content: `${response.form.title} - ${response.form.blocks.length} questions generated`,
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to generate form")
+      toast.error(error.response?.data?.message || "Failed to generate form");
       // Remove user message on error
-      setMessages(prev => prev.filter(m => m.id !== newUserMessage.id))
-      setHasForm(false)
+      setMessages((prev) => prev.filter((m) => m.id !== newUserMessage.id));
+      setHasForm(false);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSubmit()
+      e.preventDefault();
+      handleSubmit();
     }
-  }
+  };
 
   const handleSendMessage = async () => {
-    if (!chatInput.trim() || isLoading || !conversationId) return
+    if (!chatInput.trim() || isLoading || !conversationId) return;
 
-    const userMessage = chatInput.trim()
-    setChatInput("")
-    setIsLoading(true)
+    const userMessage = chatInput.trim();
+    setChatInput("");
+    setIsLoading(true);
 
     // Add user message immediately
-    const newUserMessage = { id: Date.now().toString(), role: "user" as const, content: userMessage }
-    setMessages(prev => [...prev, newUserMessage])
+    const newUserMessage = {
+      id: Date.now().toString(),
+      role: "user" as const,
+      content: userMessage,
+    };
+    setMessages((prev) => [...prev, newUserMessage]);
 
     try {
-      const response = await aiApi.sendMessage(conversationId, userMessage)
-      setGeneratedForm(response.form)
+      const response = await aiApi.sendMessage(conversationId, userMessage);
+      setGeneratedForm(response.form);
 
       // Add assistant message
       const assistantMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant" as const,
-        content: `Updated: ${response.form.title} - ${response.form.blocks.length} questions`
-      }
-      setMessages(prev => [...prev, assistantMessage])
+        content: `Updated: ${response.form.title} - ${response.form.blocks.length} questions`,
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to update form")
+      toast.error(error.response?.data?.message || "Failed to update form");
       // Remove user message on error
-      setMessages(prev => prev.filter(m => m.id !== newUserMessage.id))
+      setMessages((prev) => prev.filter((m) => m.id !== newUserMessage.id));
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleChatKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
+      e.preventDefault();
+      handleSendMessage();
     }
-  }
+  };
+
+  const handleCreateForm = async () => {
+    if (!conversationId || isCreatingForm) return;
+
+    console.log("[CreateForm] Starting...", { conversationId });
+    const startTime = Date.now();
+
+    setIsCreatingForm(true);
+    try {
+      const response = await aiApi.createForm(conversationId);
+      console.log("[CreateForm] Success!", {
+        formId: response.form_id,
+        duration: `${Date.now() - startTime}ms`
+      });
+      toast.success("Form created successfully!");
+      router.push(`/dashboard/forms/${response.form_id}`);
+    } catch (error: any) {
+      console.error("[CreateForm] Error:", error, { duration: `${Date.now() - startTime}ms` });
+      toast.error(error.response?.data?.message || "Failed to create form");
+    } finally {
+      setIsCreatingForm(false);
+    }
+  };
 
   // Load conversation from URL on mount
   useEffect(() => {
-    const convId = searchParams.get("conv")
+    const convId = searchParams.get("conv");
     if (convId) {
-      loadConversation(convId)
+      loadConversation(convId);
     } else {
-      setInitialLoading(false)
+      setInitialLoading(false);
     }
-  }, [searchParams])
+  }, [searchParams]);
 
   const loadConversation = async (convId: string) => {
     try {
-      setInitialLoading(true)
-      const response = await aiApi.getConversation(convId)
+      setInitialLoading(true);
+      const response = await aiApi.getConversation(convId);
 
-      setConversationId(convId)
-      setHasForm(true)
+      setConversationId(convId);
+      setHasForm(true);
 
       // Parse messages
-      const parsedMessages = response.messages.map(msg => ({
+      const parsedMessages = response.messages.map((msg) => ({
         id: msg.id,
         role: msg.role,
-        content: msg.role === "assistant" ? parseAssistantMessage(msg.content) : msg.content
-      }))
-      setMessages(parsedMessages)
+        content:
+          msg.role === "assistant"
+            ? parseAssistantMessage(msg.content)
+            : msg.content,
+      }));
+      setMessages(parsedMessages);
 
       // Get the last assistant message to extract form
-      const lastAssistantMsg = response.messages.filter(m => m.role === "assistant").pop()
+      const lastAssistantMsg = response.messages
+        .filter((m) => m.role === "assistant")
+        .pop();
       if (lastAssistantMsg) {
         try {
-          const form = JSON.parse(lastAssistantMsg.content)
-          setGeneratedForm(form)
+          const form = JSON.parse(lastAssistantMsg.content);
+          setGeneratedForm(form);
         } catch {
           // Content might not be JSON
         }
       }
     } catch (error: any) {
-      toast.error("Failed to load conversation")
-      router.push("/dashboard/ai-forms")
+      toast.error("Failed to load conversation");
+      router.push("/dashboard/ai-forms");
     } finally {
-      setInitialLoading(false)
+      setInitialLoading(false);
     }
-  }
+  };
 
   const parseAssistantMessage = (content: string): string => {
     try {
-      const form = JSON.parse(content)
-      return `${form.title} - ${form.blocks?.length || 0} questions generated`
+      const form = JSON.parse(content);
+      return `${form.title} - ${form.blocks?.length || 0} questions generated`;
     } catch {
-      return content
+      return content;
     }
-  }
+  };
 
   useEffect(() => {
     const handleHashChange = () => {
-      const hash = window.location.hash.replace("#", "") || "editor"
-      setActiveTab(hash)
-    }
-    handleHashChange()
-    window.addEventListener("hashchange", handleHashChange)
-    return () => window.removeEventListener("hashchange", handleHashChange)
-  }, [])
+      const hash = window.location.hash.replace("#", "") || "editor";
+      setActiveTab(hash);
+    };
+    handleHashChange();
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
 
   return (
     <AuthGuard requireAuth>
@@ -283,7 +352,9 @@ export default function AIFormsPage() {
               /* Initial State - Centered Input */
               <div className="flex-1 flex items-center justify-center pb-24">
                 <div className="w-full max-w-2xl text-center">
-                  <h2 className="text-2xl font-semibold mb-6">What form do you want to create?</h2>
+                  <h2 className="text-2xl font-semibold mb-6">
+                    What form do you want to create?
+                  </h2>
                   <div className="relative">
                     <Textarea
                       placeholder="e.g., Create a customer feedback form with 5 questions..."
@@ -299,7 +370,11 @@ export default function AIFormsPage() {
                       onClick={handleSubmit}
                       disabled={!inputValue.trim() || isLoading}
                     >
-                      {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      {isLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -313,7 +388,9 @@ export default function AIFormsPage() {
                     {messages.map((msg) => (
                       <div
                         key={msg.id}
-                        className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                        className={`flex ${
+                          msg.role === "user" ? "justify-end" : "justify-start"
+                        }`}
                       >
                         <div
                           className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
@@ -352,7 +429,11 @@ export default function AIFormsPage() {
                         onClick={handleSendMessage}
                         disabled={!chatInput.trim() || isLoading}
                       >
-                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        {isLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Send className="h-4 w-4" />
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -363,8 +444,8 @@ export default function AIFormsPage() {
 
                 {/* Right Panel with Tabs */}
                 <div className="flex-1 flex flex-col">
-                  <div className="p-3 border-b">
-                    <nav className="flex gap-4">
+                  <div className="p-3 border-b flex items-center justify-between">
+                    <nav className="flex items-center gap-4">
                       <a
                         href="#editor"
                         className={`text-sm pb-1 border-b-2 transition-colors ${
@@ -386,6 +467,20 @@ export default function AIFormsPage() {
                         Response Preview
                       </a>
                     </nav>
+                    {generatedForm && (
+                      <Button
+                        size="sm"
+                        onClick={handleCreateForm}
+                        disabled={isCreatingForm || !conversationId}
+                      >
+                        {isCreatingForm ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Plus className="h-4 w-4" />
+                        )}
+                        Generate Form
+                      </Button>
+                    )}
                   </div>
                   <div className="flex-1 p-4 overflow-y-auto">
                     {activeTab === "editor" && (
@@ -393,34 +488,45 @@ export default function AIFormsPage() {
                         {isLoading && !generatedForm ? (
                           <div className="flex items-center justify-center py-12">
                             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                            <span className="ml-2 text-muted-foreground">Generating form...</span>
+                            <span className="ml-2 text-muted-foreground">
+                              Generating form...
+                            </span>
                           </div>
                         ) : generatedForm ? (
                           <>
                             <div className="mb-4">
-                              <h3 className="text-lg font-semibold">{generatedForm.title}</h3>
-                              <p className="text-sm text-muted-foreground">{generatedForm.description}</p>
+                              <h3 className="text-lg font-semibold">
+                                {generatedForm.title}
+                              </h3>
+                              <p className="text-sm text-muted-foreground">
+                                {generatedForm.description}
+                              </p>
                             </div>
                             <div>
-                              {generatedForm.blocks.map((block, index) => renderBlock(block as any, 0, index))}
+                              {generatedForm.blocks.map((block, index) =>
+                                renderBlock(block as any, 0, index)
+                              )}
                             </div>
                           </>
                         ) : (
-                          <p className="text-muted-foreground text-sm">No form generated yet</p>
+                          <p className="text-muted-foreground text-sm">
+                            No form generated yet
+                          </p>
                         )}
                       </div>
                     )}
-                    {activeTab === "preview" && (
-                      generatedForm ? (
+                    {activeTab === "preview" &&
+                      (generatedForm ? (
                         <FormPreview
                           blocks={generatedForm.blocks as any}
                           title={generatedForm.title}
                           description={generatedForm.description}
                         />
                       ) : (
-                        <p className="text-muted-foreground text-sm">No form to preview yet</p>
-                      )
-                    )}
+                        <p className="text-muted-foreground text-sm">
+                          No form to preview yet
+                        </p>
+                      ))}
                   </div>
                 </div>
               </div>
@@ -429,5 +535,5 @@ export default function AIFormsPage() {
         </SidebarInset>
       </SidebarProvider>
     </AuthGuard>
-  )
+  );
 }
