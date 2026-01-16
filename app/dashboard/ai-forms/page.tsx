@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Send, ChevronRight, ChevronDown, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -23,6 +24,9 @@ import {
 } from "@/components/ui/sidebar"
 
 export default function AIFormsPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
   const [activeTab, setActiveTab] = useState("editor")
   const [hasForm, setHasForm] = useState(false)
   const [inputValue, setInputValue] = useState("")
@@ -32,6 +36,7 @@ export default function AIFormsPage() {
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [generatedForm, setGeneratedForm] = useState<GeneratedForm | null>(null)
   const [chatInput, setChatInput] = useState("")
+  const [initialLoading, setInitialLoading] = useState(true)
 
   const toggleCollapse = (id: string) => {
     setCollapsed((prev) => {
@@ -112,6 +117,9 @@ export default function AIFormsPage() {
       setConversationId(response.conversation_id)
       setGeneratedForm(response.form)
 
+      // Update URL with conversation ID
+      router.push(`/dashboard/ai-forms?conv=${response.conversation_id}`, { scroll: false })
+
       // Add assistant message
       const assistantMessage = {
         id: (Date.now() + 1).toString(),
@@ -174,6 +182,59 @@ export default function AIFormsPage() {
     }
   }
 
+  // Load conversation from URL on mount
+  useEffect(() => {
+    const convId = searchParams.get("conv")
+    if (convId) {
+      loadConversation(convId)
+    } else {
+      setInitialLoading(false)
+    }
+  }, [searchParams])
+
+  const loadConversation = async (convId: string) => {
+    try {
+      setInitialLoading(true)
+      const response = await aiApi.getConversation(convId)
+
+      setConversationId(convId)
+      setHasForm(true)
+
+      // Parse messages
+      const parsedMessages = response.messages.map(msg => ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.role === "assistant" ? parseAssistantMessage(msg.content) : msg.content
+      }))
+      setMessages(parsedMessages)
+
+      // Get the last assistant message to extract form
+      const lastAssistantMsg = response.messages.filter(m => m.role === "assistant").pop()
+      if (lastAssistantMsg) {
+        try {
+          const form = JSON.parse(lastAssistantMsg.content)
+          setGeneratedForm(form)
+        } catch {
+          // Content might not be JSON
+        }
+      }
+    } catch (error: any) {
+      toast.error("Failed to load conversation")
+      router.push("/dashboard/ai-forms")
+    } finally {
+      setInitialLoading(false)
+    }
+  }
+
+  const parseAssistantMessage = (content: string): string => {
+    try {
+      const form = JSON.parse(content)
+      return `${form.title} - ${form.blocks?.length || 0} questions generated`
+    } catch {
+      return content
+    }
+  }
+
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace("#", "") || "editor"
@@ -212,7 +273,12 @@ export default function AIFormsPage() {
           </header>
 
           <div className="flex flex-1 flex-col overflow-hidden">
-            {!hasForm ? (
+            {initialLoading ? (
+              /* Loading State */
+              <div className="flex-1 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : !hasForm ? (
               /* Initial State - Centered Input */
               <div className="flex-1 flex items-center justify-center pb-24">
                 <div className="w-full max-w-2xl text-center">
