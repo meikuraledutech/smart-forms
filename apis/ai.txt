@@ -1,0 +1,271 @@
+AI FORM GENERATION MODULE – README
+
+This module implements AI-powered form generation
+using Go (Fiber), Google Gemini API, and PostgreSQL.
+
+FEATURES
+- AI-powered conditional form generation
+- Conversation-based iterative refinement
+- Deep nested form structures (up to 5 levels)
+- Multi-aspect coverage (5-7 root questions)
+- "Other" option pattern with text input
+- Domain-agnostic (works for any topic)
+- One-click form creation from AI output
+- Conversation history persistence
+- User-scoped access (JWT)
+
+FLOW
+1. User describes form requirement
+2. AI generates comprehensive conditional form structure
+3. User can refine ("add more questions", "make it shorter")
+4. When satisfied, create actual form with one API call
+5. Form and flow structure created in database
+
+AI CONVERSATION MODEL
+- id (uuid)
+- user_id (owner)
+- form_id (linked form, nullable)
+- title (auto-generated from request)
+- created_at (UTC)
+- updated_at (UTC)
+- deleted_at (soft delete)
+
+AI MESSAGE MODEL
+- id (uuid)
+- conversation_id (foreign key)
+- role ("user" | "assistant")
+- content (message text or form JSON)
+- created_at (UTC)
+
+GENERATED FORM STRUCTURE
+{
+  "title": "Form Title",
+  "description": "Form description",
+  "blocks": [
+    {
+      "id": "unique-id",
+      "type": "question",
+      "question": "Question text",
+      "children": [
+        {
+          "type": "option",
+          "question": "Option text",
+          "children": [/* nested questions */]
+        }
+      ]
+    }
+  ]
+}
+
+Block Types:
+- "question" - A question node
+  - With children (options) = multiple choice
+  - Empty children [] = text input
+- "option" - An option/choice node
+  - Can have nested questions (conditional follow-up)
+  - Empty children [] = terminal node
+
+AI ENDPOINTS
+
+1. Create Conversation (Start New Form Generation)
+POST /admin/ai/conversations
+Headers:
+Authorization: Bearer <access_token>
+
+Body:
+{
+  "message": "Create a product review form"
+}
+
+Response (201):
+{
+  "conversation_id": "uuid",
+  "message": "Conversation created successfully",
+  "form": {
+    "title": "Product Review Form",
+    "description": "...",
+    "blocks": [...]
+  }
+}
+
+Example:
+TOKEN="your_access_token"
+curl -X POST http://localhost:3030/admin/ai/conversations \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"message": "Create a trainer feedback form"}'
+
+2. Send Message (Continue Conversation)
+POST /admin/ai/conversations/:id/messages
+Headers:
+Authorization: Bearer <access_token>
+
+Body:
+{
+  "message": "Add more questions about course materials"
+}
+
+Response (200):
+{
+  "message": "Response generated successfully",
+  "form": {
+    "title": "Updated Form Title",
+    "description": "...",
+    "blocks": [/* updated structure */]
+  }
+}
+
+Example:
+TOKEN="your_access_token"
+CONV_ID="conversation-uuid"
+curl -X POST "http://localhost:3030/admin/ai/conversations/$CONV_ID/messages" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"message": "Make it shorter, keep only 4 main questions"}'
+
+3. Get Conversation (View History)
+GET /admin/ai/conversations/:id
+Headers:
+Authorization: Bearer <access_token>
+
+Response (200):
+{
+  "conversation": {
+    "id": "uuid",
+    "user_id": "uuid",
+    "form_id": null,
+    "title": "Trainer Feedback Form",
+    "created_at": "...",
+    "updated_at": "..."
+  },
+  "messages": [
+    {"role": "user", "content": "Create a trainer feedback form"},
+    {"role": "assistant", "content": "{...form JSON...}"},
+    {"role": "user", "content": "Add more questions"},
+    {"role": "assistant", "content": "{...updated form JSON...}"}
+  ]
+}
+
+Example:
+TOKEN="your_access_token"
+CONV_ID="conversation-uuid"
+curl -X GET "http://localhost:3030/admin/ai/conversations/$CONV_ID" \
+  -H "Authorization: Bearer $TOKEN"
+
+4. Create Form from Conversation
+POST /admin/ai/conversations/:id/create-form
+Headers:
+Authorization: Bearer <access_token>
+
+Response (201):
+{
+  "message": "Form created successfully from AI conversation",
+  "form_id": "uuid",
+  "form": {
+    "id": "uuid",
+    "title": "Product Review Form",
+    "description": "...",
+    "status": "draft",
+    "created_at": "..."
+  }
+}
+
+Error Responses:
+- 409: "Form already created from this conversation"
+- 400: "No generated form found in conversation"
+- 400: "Invalid form JSON in conversation"
+
+Example:
+TOKEN="your_access_token"
+CONV_ID="conversation-uuid"
+curl -X POST "http://localhost:3030/admin/ai/conversations/$CONV_ID/create-form" \
+  -H "Authorization: Bearer $TOKEN"
+
+REFINEMENT COMMANDS
+The AI understands these modification requests:
+- "add" / "include" - Add new questions or branches
+- "remove" / "delete" - Remove specified questions
+- "change" / "modify" - Modify existing questions
+- "make it deeper" - Increase nesting depth
+- "add more aspects" - Add more root questions
+- "shorter" - Reduce questions (keeps minimum 4 roots)
+- "longer" / "more comprehensive" - Add more content
+- "add Other option" - Add "Other" with text input
+
+EXAMPLE WORKFLOW
+
+Step 1: Start conversation
+POST /admin/ai/conversations
+{"message": "Create a healthcare feedback form"}
+
+Step 2: Refine (optional, repeat as needed)
+POST /admin/ai/conversations/:id/messages
+{"message": "Add questions about billing experience"}
+
+Step 3: Create form when satisfied
+POST /admin/ai/conversations/:id/create-form
+
+Step 4: Form is ready in draft status
+- Use GET /forms/:id to view
+- Use GET /forms/:id/flow to see full structure
+- Use PATCH /forms/:id to publish
+
+ERROR HANDLING
+- 400: Empty message, invalid input, bad request
+- 401: Invalid API key (Gemini configuration issue)
+- 404: Conversation not found, AI model not found
+- 409: Form already created from conversation
+- 429: API quota exceeded, rate limited
+- 500: AI service failed, parse error, database error
+
+CONFIGURATION
+Environment variables in .env:
+- GEMINI_API_KEY: Google Gemini API key
+- GEMINI_MODEL: Model name (default: gemini-1.5-flash)
+
+System prompt location:
+- internal/ai/prompts/system_prompt.txt
+
+ACCESS CONTROL
+- All AI endpoints require JWT authentication
+- Currently restricted to super_admin only (development phase)
+- Will be opened to paid users in future release
+- Conversations are user-scoped (users can only access their own)
+- Created forms belong to the user who created the conversation
+
+ENDPOINT PATHS (under /admin)
+- POST /admin/ai/conversations
+- POST /admin/ai/conversations/:id/messages
+- GET /admin/ai/conversations/:id
+- POST /admin/ai/conversations/:id/create-form
+
+MIGRATIONS
+- Raw SQL only
+- Files:
+  migrations/015_create_ai_conversations.up.sql
+  migrations/015_create_ai_conversations.down.sql
+
+DATABASE TABLES
+- ai_conversations: Stores conversation metadata
+- ai_messages: Stores conversation messages (user + assistant)
+
+DOMAIN EXAMPLES
+The AI can generate forms for any domain:
+- Trainer/course feedback
+- Product reviews
+- Healthcare feedback
+- IT internal feedback
+- Restaurant/hotel reviews
+- Employee onboarding
+- Customer satisfaction
+- Event feedback
+- And more...
+
+STATUS
+AI form generation module is complete and working.
+- Conversation creation: Working
+- Message continuation: Working
+- Conversation retrieval: Working
+- Form creation from AI: Working
+- Deep nested structures: Working
+- Duplicate prevention: Working

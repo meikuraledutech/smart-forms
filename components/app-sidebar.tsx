@@ -13,6 +13,7 @@ import {
   Tag,
   LayoutTemplate,
   Ticket,
+  Sparkles,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -41,6 +42,11 @@ const data = {
       title: "My Forms",
       url: "/dashboard",
       icon: FileText,
+    },
+    {
+      title: "AI Forms",
+      url: "/dashboard/ai-forms",
+      icon: Sparkles,
     },
     {
       title: "Analytics",
