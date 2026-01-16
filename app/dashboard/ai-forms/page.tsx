@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { aiApi, GeneratedForm } from "@/lib/ai-api"
+import { FormPreview } from "@/components/form-preview"
 import { AppSidebar } from "@/components/app-sidebar"
 import AuthGuard from "@/components/auth-guard"
 import { NavActions } from "@/components/nav-actions"
@@ -410,7 +411,15 @@ export default function AIFormsPage() {
                       </div>
                     )}
                     {activeTab === "preview" && (
-                      <p className="text-muted-foreground text-sm">Form preview will appear here</p>
+                      generatedForm ? (
+                        <FormPreview
+                          blocks={generatedForm.blocks as any}
+                          title={generatedForm.title}
+                          description={generatedForm.description}
+                        />
+                      ) : (
+                        <p className="text-muted-foreground text-sm">No form to preview yet</p>
+                      )
                     )}
                   </div>
                 </div>
